@@ -22,6 +22,9 @@ python cad_g4_app.py --step-file input.STEP -o output.gdml
 
 # Check for overlaps
 python cad_g4_app.py --step-file input.STEP --check-overlaps
+
+# Center geometry at world origin
+python cad_g4_app.py --step-file input.STEP --center-origin
 ```
 
 ### Real Examples
@@ -43,6 +46,13 @@ python cad_g4_app.py \
     --step-file CAD_files/HEPI-PbF2/HEPI-PbF2.STEP \
     -o HEPI-PbF2.gdml \
     --check-overlaps
+
+# Stacked Trays centered at origin
+python cad_g4_app.py \
+    --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
+    --stl-dir CAD_files/Stacked-Trays/STLs \
+    --center-origin \
+    -o Stacked-Trays.gdml
 ```
 
 ## Decision Tree

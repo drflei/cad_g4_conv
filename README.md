@@ -77,6 +77,9 @@ python cad_g4_app.py --step-file detector.STEP --check-overlaps
 
 # 5. Flat mode (robust fallback)
 python cad_g4_app.py --step-file complex.STEP --flat
+
+# 6. Center geometry at world origin
+python cad_g4_app.py --step-file detector.STEP --center-origin
 ```
 
 ## Running from Other Directories
@@ -176,4 +179,4 @@ For detailed usage, see:
 
 ## License
 
-Part of the CLAIRE project.
+GNU V3.0

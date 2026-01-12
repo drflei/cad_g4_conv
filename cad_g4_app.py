@@ -534,6 +534,7 @@ def convert_step_to_gdml(
     *,
     use_hierarchy: bool = True,
     check_overlaps: bool = False,
+    center_origin: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STEP file directly to GDML using pyg4ometry.
     
@@ -542,6 +543,7 @@ def convert_step_to_gdml(
         output_file: Path to output GDML file
         use_hierarchy: If True, maintain assembly hierarchy; if False, use flat tessellation
         check_overlaps: If True, perform geometry overlap checking
+        center_origin: If True, center geometry at world origin
     
     Returns:
         pyg4ometry Registry containing the geometry
@@ -586,6 +588,9 @@ def convert_step_to_gdml(
             min_v, max_v = _oce_shape_bbox(top_shape, lin_def=0.5, ang_def=0.5)
             margin = 0.1
             size = [max_v[i] - min_v[i] for i in range(3)]
+            center = [(min_v[i] + max_v[i]) / 2.0 for i in range(3)]
+            offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
+            
             for i in range(3):
                 extra = size[i] * margin
                 min_v[i] -= extra
@@ -605,10 +610,12 @@ def convert_step_to_gdml(
             reg.setWorld(world_lv)
             
             # Build components
-            component_count = _build_hierarchy_manually(reader, top_label, reg, cad_material, world_lv)
+            component_count = _build_hierarchy_manually(reader, top_label, reg, cad_material, world_lv, offset=offset)
             
             print(f"  Bounding box: [{min_v[0]:.1f}, {min_v[1]:.1f}, {min_v[2]:.1f}] to [{max_v[0]:.1f}, {max_v[1]:.1f}, {max_v[2]:.1f}]")
             print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
+            if center_origin:
+                print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
             print(f"✓ Conversion successful with {component_count} components")
             
             cad_registry = reg
@@ -664,11 +671,12 @@ def convert_step_to_gdml(
         world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv", reg)
         
         # Offset to center geometry
-        offset = [-center[0], -center[1], -center[2]]
+        offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
         
         print(f"  Bounding box: [{min_v[0]:.1f}, {min_v[1]:.1f}, {min_v[2]:.1f}] to [{max_v[0]:.1f}, {max_v[1]:.1f}, {max_v[2]:.1f}]")
         print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
-        print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
+        if center_origin:
+            print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
         
         pyg4ometry.geant4.PhysicalVolume([0, 0, 0], offset, cad_lv, "cad_pv", world_lv, reg)
         reg.setWorld(world_lv)
@@ -700,12 +708,14 @@ def convert_step_to_gdml(
 def convert_single_stl_to_gdml(
     stl_file: Path,
     output_file: Path,
+    center_origin: bool = True,
 ) -> pyg4ometry.geant4.Registry:
     """Convert a single STL file to GDML.
     
     Args:
         stl_file: Path to STL mesh file
         output_file: Path to output GDML file
+        center_origin: If True, center geometry at world origin (default: True)
     
     Returns:
         pyg4ometry Registry containing the geometry
@@ -774,12 +784,13 @@ def convert_single_stl_to_gdml(
     world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv", reg)
     
     # Offset to center geometry
-    offset = [-center[0], -center[1], -center[2]]
+    offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
     
     print(f"\nGeometry information:")
     print(f"  Bounding box: [{min_v[0]:.1f}, {min_v[1]:.1f}, {min_v[2]:.1f}] to [{max_v[0]:.1f}, {max_v[1]:.1f}, {max_v[2]:.1f}]")
     print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
-    print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
+    if center_origin:
+        print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
     
     # Place mesh in world volume
     print("\nPlacing mesh in world volume...")
@@ -812,6 +823,7 @@ def convert_stl_to_gdml(
     stl_dir: Path,
     step_file: Path,
     output_file: Path,
+    center_origin: bool = True,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STL files + STEP assembly to GDML.
     
@@ -819,6 +831,7 @@ def convert_stl_to_gdml(
         stl_dir: Directory containing STL mesh files
         step_file: STEP file for placement information
         output_file: Path to output GDML file
+        center_origin: If True, center geometry at world origin (default: True)
     
     Returns:
         pyg4ometry Registry containing the geometry
@@ -854,27 +867,47 @@ def convert_stl_to_gdml(
     step_placements = _extract_step_placements(step_file)
     print(f"Found {len(step_placements)} component placements")
 
-    # Load STL files and compute bounding boxes
-    print("\nLoading STL files...")
-    parts: List[Dict] = []
+    # Calculate global bounding box first to get center offset
+    print("\nCalculating global bounding box...")
+    global_min = [float("inf")] * 3
+    global_max = [float("-inf")] * 3
     
-    def aabb_from_facets(facets) -> Tuple[List[float], List[float]]:
-        min_v = [float("inf")] * 3
-        max_v = [float("-inf")] * 3
-        for tri, _n in facets:
+    # First pass: scan all STL files to get global bounds
+    temp_readers = []
+    for stl_path in stl_paths:
+        reader = pyg4ometry.stl.Reader(
+            filename=str(stl_path),
+            solidname="temp",
+            scale=1,
+            centre=False,
+            registry=None,
+        )
+        temp_readers.append(reader)
+        for tri, _n in reader.facet_list:
             for x, y, z in tri:
                 for i in range(3):
-                    if [x, y, z][i] < min_v[i]:
-                        min_v[i] = [x, y, z][i]
-                    if [x, y, z][i] > max_v[i]:
-                        max_v[i] = [x, y, z][i]
-        return min_v, max_v
+                    if [x, y, z][i] < global_min[i]:
+                        global_min[i] = [x, y, z][i]
+                    if [x, y, z][i] > global_max[i]:
+                        global_max[i] = [x, y, z][i]
+    
+    # Calculate center for offsetting
+    center = [(global_min[i] + global_max[i]) / 2.0 for i in range(3)]
+    
+    print(f"  Bounding box: [{global_min[0]:.1f}, {global_min[1]:.1f}, {global_min[2]:.1f}] to [{global_max[0]:.1f}, {global_max[1]:.1f}, {global_max[2]:.1f}]")
+    if center_origin:
+        print(f"  Center offset: [{-center[0]:.1f}, {-center[1]:.1f}, {-center[2]:.1f}]")
+    
+    # Load STL files
+    print("\nLoading STL files...")
+    parts: List[Dict] = []
 
     for idx, stl_path in enumerate(stl_paths):
         key = stl_path.stem.strip().lower()
         solid_name = f"stl_solid_{idx}_{stl_path.stem.replace(' ', '_')}"
         pv_name = f"pv_{idx}_{stl_path.stem.replace(' ', '_')}"
 
+        # Always load without centering
         reader = pyg4ometry.stl.Reader(
             filename=str(stl_path),
             solidname=solid_name,
@@ -882,16 +915,15 @@ def convert_stl_to_gdml(
             centre=False,
             registry=reg,
         )
-        min_v, max_v = aabb_from_facets(reader.facet_list)
+        solid = reader.getSolid()
+        
         parts.append({
             "idx": idx,
             "path": stl_path,
             "key": key,
             "key_norm": _norm_key(key),
-            "solid": reader.getSolid(),
+            "solid": solid,
             "pv_name": pv_name,
-            "aabb_min": min_v,
-            "aabb_max": max_v,
         })
         print(f"  [{idx+1}/{len(stl_paths)}] {stl_path.name}")
 
@@ -916,26 +948,22 @@ def convert_stl_to_gdml(
             f"Available STEP keys: {known}"
         )
 
-    # Calculate world size from all STL bounding boxes
+    # Calculate world volume size
     print("\nCalculating world volume size...")
-    global_min = [float('inf')] * 3
-    global_max = [float('-inf')] * 3
     
-    for p in parts:
-        for i in range(3):
-            global_min[i] = min(global_min[i], p["aabb_min"][i])
-            global_max[i] = max(global_max[i], p["aabb_max"][i])
+    # Calculate size and apply centering offset
+    size = [global_max[i] - global_min[i] for i in range(3)]
+    offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
     
     # Add 10% margin
     margin = 0.1
-    size = [global_max[i] - global_min[i] for i in range(3)]
-    center = [(global_min[i] + global_max[i]) / 2.0 for i in range(3)]
-    
     for i in range(3):
         extra = size[i] * margin
-        global_min[i] -= extra
-        global_max[i] += extra
         size[i] += 2 * extra
+    
+    print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
+    if center_origin:
+        print(f"  Applying offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
     
     # Create world box (Box takes half-lengths)
     world_solid = pyg4ometry.geant4.solid.Box(
@@ -947,22 +975,15 @@ def convert_stl_to_gdml(
         lunit="mm"
     )
     world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv", reg)
-    
-    # Offset to center geometry
-    offset = [-center[0], -center[1], -center[2]]
-    
-    print(f"  Bounding box: [{global_min[0]:.1f}, {global_min[1]:.1f}, {global_min[2]:.1f}] to [{global_max[0]:.1f}, {global_max[1]:.1f}, {global_max[2]:.1f}]")
-    print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
-    print(f"  Center offset: [{offset[0]:.1f}, {offset[1]:.1f}, {offset[2]:.1f}]")
 
-    # Place all parts
+    # Place all parts (vertices already centered if center_origin=True)
     print("\nPlacing parts in world volume...")
     for p in parts:
         solid_name = p["solid"].name
         lv = pyg4ometry.geant4.LogicalVolume(p["solid"], part_material, f"lv_{solid_name}", reg)
         rot, tra = placements[p["idx"]]
-        tra_offset = [tra[i] + offset[i] for i in range(3)]
-        pyg4ometry.geant4.PhysicalVolume(rot, tra_offset, lv, p["pv_name"], world_lv, reg)
+        # tra is [0,0,0] for STL+STEP workflow, no additional offset needed
+        pyg4ometry.geant4.PhysicalVolume(rot, tra, lv, p["pv_name"], world_lv, reg)
 
     reg.setWorld(world_lv)
 
@@ -974,6 +995,28 @@ def convert_stl_to_gdml(
     writer = pyg4ometry.gdml.Writer()
     writer.addDetector(reg)
     writer.write(str(output_file))
+    
+    # If centering enabled, post-process GDML to offset vertex positions
+    if center_origin:
+        print(f"Post-processing GDML to center vertices...")
+        import xml.etree.ElementTree as ET
+        tree = ET.parse(str(output_file))
+        root = tree.getroot()
+        
+        # Find and modify all position defines
+        ns = {'gdml': 'http://www.w3.org/2001/XMLSchema-instance'}
+        defines = root.find('define')
+        if defines is not None:
+            for position in defines.findall('position'):
+                x = float(position.get('x', 0))
+                y = float(position.get('y', 0))
+                z = float(position.get('z', 0))
+                position.set('x', str(x - center[0]))
+                position.set('y', str(y - center[1]))
+                position.set('z', str(z - center[2]))
+        
+        tree.write(str(output_file), encoding='utf-8', xml_declaration=True)
+        
     print(f"✓ GDML export complete\n")
 
     return reg
@@ -1041,6 +1084,11 @@ EXAMPLES:
         action="store_true",
         help="Perform geometry overlap checking (STEP-only workflow)",
     )
+    parser.add_argument(
+        "--center-origin",
+        action="store_true",
+        help="Center the geometry at world origin",
+    )
     
     args = parser.parse_args()
     
@@ -1059,6 +1107,10 @@ EXAMPLES:
         print("Error: Cannot use both --stl-file and --step-file. Use --stl-dir for STL+STEP workflow.")
         return 1
     
+    if args.stl_dir and not args.step_file:
+        print("Error: STL+STEP workflow requires both --stl-dir and --step-file")
+        return 1
+    
     # Determine workflow based on inputs
     if args.stl_file:
         # Single STL workflow
@@ -1072,7 +1124,7 @@ EXAMPLES:
         if args.check_overlaps:
             print("Warning: --check-overlaps not supported in single STL workflow")
         
-        convert_single_stl_to_gdml(stl_file, output_file)
+        convert_single_stl_to_gdml(stl_file, output_file, center_origin=args.center_origin)
         
     elif args.stl_dir:
         # STL+STEP workflow
@@ -1091,7 +1143,7 @@ EXAMPLES:
         if args.check_overlaps:
             print("Warning: --check-overlaps not supported in STL+STEP workflow")
         
-        convert_stl_to_gdml(stl_dir, step_file, output_file)
+        convert_stl_to_gdml(stl_dir, step_file, output_file, center_origin=args.center_origin)
         
     else:
         # STEP-only workflow
@@ -1106,6 +1158,7 @@ EXAMPLES:
             output_file,
             use_hierarchy=not args.flat,
             check_overlaps=args.check_overlaps,
+            center_origin=args.center_origin,
         )
     
     return 0

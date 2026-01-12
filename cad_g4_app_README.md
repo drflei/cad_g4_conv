@@ -77,6 +77,19 @@ python cad_g4_app.py --stl-file part.stl -o part.gdml
 python cad_g4_app.py --step-file input.STEP --check-overlaps
 ```
 
+### Centering Geometry
+```bash
+# Center geometry at world origin (applies offset to all placements)
+python cad_g4_app.py --step-file input.STEP --center-origin
+
+# Center STL+STEP geometry
+python cad_g4_app.py \
+    --step-file assembly.STEP \
+    --stl-dir STLs/ \
+    --center-origin \
+    -o centered.gdml
+```
+
 ## Command Line Options
 
 ```
@@ -86,6 +99,7 @@ python cad_g4_app.py --step-file input.STEP --check-overlaps
 --output, -o PATH       Output GDML file path (default: output.gdml)
 --flat                  Use flat tessellated mode (STEP-only)
 --check-overlaps        Perform geometry overlap checking (STEP-only)
+--center-origin         Center the geometry at world origin
 ```
 
 ## Workflow Detection
