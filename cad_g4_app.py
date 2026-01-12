@@ -444,8 +444,11 @@ def _find_best_step_match(stl_key_norm: str, step_placements: Dict) -> str | Non
     return None
 
 
-def _build_hierarchy_manually(reader: pyg4ometry.pyoce.Reader, root_label, reg, cad_material, world_lv):
+def _build_hierarchy_manually(reader: pyg4ometry.pyoce.Reader, root_label, reg, cad_material, world_lv, offset=None):
     """Build hierarchy manually by converting each component separately, avoiding circular refs."""
+    if offset is None:
+        offset = [0.0, 0.0, 0.0]
+    
     st = reader.shapeTool
     
     def label_name(label) -> str:
@@ -455,9 +458,9 @@ def _build_hierarchy_manually(reader: pyg4ometry.pyoce.Reader, root_label, reg, 
     
     def get_transform(label):
         """Extract transformation from label."""
-        # For now, use identity transformation
+        # For now, use identity transformation with global offset
         # TODO: Extract proper transformations from STEP assembly
-        tra = [0.0, 0.0, 0.0]
+        tra = [offset[0], offset[1], offset[2]]
         rot = [0.0, 0.0, 0.0]
         return tra, rot
     
@@ -660,15 +663,16 @@ def convert_step_to_gdml(
             size[i] += 2 * extra
         
         # Create world volume (Box takes half-lengths)
+        # Use unique name for flat fallback to avoid duplicate registration
         world_solid = pyg4ometry.geant4.solid.Box(
-            "world_solid",
+            "world_solid_flat",
             size[0] / 2.0,
             size[1] / 2.0,
             size[2] / 2.0,
             reg,
             lunit="mm"
         )
-        world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv", reg)
+        world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv_flat", reg)
         
         # Offset to center geometry
         offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]

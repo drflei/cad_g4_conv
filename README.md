@@ -1,6 +1,21 @@
 # CAD to Geant4 Converter Suite
 
-A collection of tools for converting CAD files (STEP, STL) to GDML format for Geant4 simulations.
+A collection of tools for converting CAD files (STEP, STL) to GDML for use in Geant4 simulations.
+
+Converting CAD to GDML/Geant4 requires care; preparing the CAD model before conversion greatly improves results. Recommended best practices:
+
+- Exclude unimportant small parts (connectors, screws, bolts and similar fasteners and their cuts). Removing these reduces model complexity and speeds processing.
+- Mark or separate the components you care about for simulation (for example detector sensitive volumes) so they are easy to identify after conversion.
+- Avoid intentional overlaps between volumes in the CAD model; overlaps are hard to resolve automatically.
+
+When exporting from your CAD tool:
+
+- Prefer STEP-214 when available (keeps hierarchy and metadata).
+- Export components to separate files where practical; a single monolithic STEP often results in a single tessellated solid in GDML.
+- Preserve the assembly hierarchy and names (the converter uses these to rebuild the structure in Geant4).
+- If STEP cannot be used, export per-component STLs and also keep a single STEP export for component rotations/translations so parts can be reassembled.
+
+Note: GDML output typically lacks detailed material assignments. Post-process the GDML with `gdml-editor` to add or correct materials: https://github.com/drflei/gdml-editor
 
 ## Main Application: cad_g4_app.py
 

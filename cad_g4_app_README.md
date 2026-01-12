@@ -4,7 +4,7 @@ Unified application merging `step_g4_app.py` and `stl_g4_app.py` functionality w
 
 ## Overview
 
-This tool converts CAD geometry to GDML format for Geant4 simulations, supporting three workflows:
+Converting CAD to GDML/Geant4 requires preparation and deliberate export choices in the CAD tool. This application supports three workflows and assumes you follow best practices (see the main README):
 
 ### 1. STEP-to-GDML (Native Geometry)
 - Direct STEP file conversion using pyg4ometry's OpenCASCADE backend
