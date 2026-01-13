@@ -531,6 +531,93 @@ def _build_hierarchy_manually(reader: pyg4ometry.pyoce.Reader, root_label, reg, 
     return component_count
 
 
+def _check_and_repair_stl_files(stl_paths, repair=False):
+    """Check STL files for watertightness and optionally attempt repairs.
+    Returns: (new_paths, report_list)
+    """
+    import importlib.util
+    try:
+        import trimesh
+    except Exception:
+        print("Warning: trimesh not available; skipping STL precheck/repair.")
+        return stl_paths, []
+    report = []
+    # Try to load local repair_stls.py if present to use its routine
+    repair_module = None
+    rep_path = Path.cwd() / 'repair_stls.py'
+    if rep_path.exists():
+        try:
+            spec = importlib.util.spec_from_file_location("repair_stls_local", str(rep_path))
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            repair_module = mod
+        except Exception:
+            repair_module = None
+    new_paths = []
+    for p in stl_paths:
+        p = Path(p)
+        entry = {'stl': str(p), 'watertight_before': None, 'repaired': False, 'used': str(p), 'notes': ''}
+        try:
+            mesh = trimesh.load_mesh(str(p), force='mesh')
+            entry['watertight_before'] = bool(mesh.is_watertight)
+        except Exception as e:
+            entry['notes'] = f'load_failed:{e}'
+            report.append(entry)
+            new_paths.append(p)
+            continue
+        if entry['watertight_before']:
+            new_paths.append(p)
+            report.append(entry)
+            continue
+        if not repair:
+            report.append(entry)
+            new_paths.append(p)
+            continue
+        # Attempt repair
+        if repair_module and hasattr(repair_module, 'try_repair_stl'):
+            try:
+                res = repair_module.try_repair_stl(str(p), backup=True)
+                if res.get('fixed'):
+                    entry['repaired'] = True
+                    entry['used'] = res.get('fixed')
+                entry['watertight_after'] = res.get('watertight_after')
+                entry['notes'] += res.get('notes','')
+            except Exception as e:
+                entry['notes'] += f'repair_failed:{e};'
+        else:
+            # Inline minimal repair
+            try:
+                trimesh.repair.fix_normals(mesh)
+            except Exception:
+                pass
+            try:
+                mesh.remove_duplicate_faces()
+            except Exception:
+                pass
+            try:
+                mesh.remove_degenerate_faces()
+            except Exception:
+                pass
+            if hasattr(trimesh.repair, 'fill_holes'):
+                try:
+                    trimesh.repair.fill_holes(mesh)
+                except Exception as e:
+                    entry['notes'] += f'fill_holes_failed:{e};'
+            out_name = str(p.with_name(p.stem + '-fixed' + p.suffix))
+            try:
+                mesh.export(out_name)
+                entry['repaired'] = True
+                entry['used'] = out_name
+                # re-load to check
+                mesh2 = trimesh.load_mesh(out_name, force='mesh')
+                entry['watertight_after'] = bool(mesh2.is_watertight)
+            except Exception as e:
+                entry['notes'] += f'export_failed:{e};'
+        new_paths.append(Path(entry['used']))
+        report.append(entry)
+    return new_paths, report
+
+
 def convert_step_to_gdml(
     step_file: Path,
     output_file: Path,
@@ -538,6 +625,8 @@ def convert_step_to_gdml(
     use_hierarchy: bool = True,
     check_overlaps: bool = False,
     center_origin: bool = False,
+    precheck: bool = False,
+    repair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STEP file directly to GDML using pyg4ometry.
     
@@ -574,6 +663,46 @@ def convert_step_to_gdml(
     free_shapes = reader.freeShapes()
     top_label = free_shapes.Value(1)
     top_shape = reader.shapeTool.GetShape(top_label)
+
+    # Optional STEP precheck: attempt a dry-run tessellation to catch issues early
+    if precheck:
+        print("\nPre-checking STEP tessellation (dry-run)...")
+        try:
+            tmp_reg = pyg4ometry.geant4.Registry()
+            _ = pyg4ometry.convert.oceShape_Geant4_Tessellated(name="_precheck_tmp", shape=top_shape, greg=tmp_reg, linDef=0.5, angDef=0.5)
+            print("  STEP tessellation test: OK")
+        except Exception as e:
+            print(f"  STEP tessellation test failed: {e}")
+            if repair:
+                print("  Attempting STEP repair via local repair_step_pyoce.py (if present)...")
+                try:
+                    import importlib.util
+                    rep_path = Path.cwd() / 'repair_step_pyoce.py'
+                    if rep_path.exists():
+                        spec = importlib.util.spec_from_file_location("repair_step_pyoce_local", str(rep_path))
+                        mod = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(mod)
+                        if hasattr(mod, 'repair_step_file'):
+                            fixed = mod.repair_step_file(str(step_file))
+                            if fixed:
+                                print(f"  STEP repair produced: {fixed}")
+                                step_file = Path(fixed)
+                                reader = pyg4ometry.pyoce.Reader(str(step_file))
+                                top_label = reader.freeShapes().Value(1)
+                                top_shape = reader.shapeTool.GetShape(top_label)
+                                print("  Re-running tessellation test...")
+                                try:
+                                    tmp_reg2 = pyg4ometry.geant4.Registry()
+                                    _ = pyg4ometry.convert.oceShape_Geant4_Tessellated(name="_precheck_tmp2", shape=top_shape, greg=tmp_reg2, linDef=0.5, angDef=0.5)
+                                    print("  Re-test OK")
+                                except Exception as e2:
+                                    print(f"  Re-test failed: {e2}")
+                        else:
+                            print("  repair_step_pyoce module found but no 'repair_step_file' entry point")
+                    else:
+                        print("  No repair_step_pyoce.py found; please run it manually to repair the STEP file")
+                except Exception as e2:
+                    print(f"  STEP repair attempt failed: {e2}")
 
     cad_registry = None
 
@@ -739,14 +868,18 @@ def convert_single_stl_to_gdml(
     stl_file: Path,
     output_file: Path,
     center_origin: bool = True,
+    precheck: bool = False,
+    repair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert a single STL file to GDML.
-    
+
     Args:
         stl_file: Path to STL mesh file
         output_file: Path to output GDML file
         center_origin: If True, center geometry at world origin (default: True)
-    
+        precheck: If True, run STL pre-checks before conversion
+        repair: If True and precheck=True, attempt automated STL repairs
+
     Returns:
         pyg4ometry Registry containing the geometry
     """
@@ -758,10 +891,15 @@ def convert_single_stl_to_gdml(
     
     if not stl_file.exists():
         raise FileNotFoundError(f"STL file not found: {stl_file}")
-    
-    # Create registry and materials
-    reg = pyg4ometry.geant4.Registry()
-    world_material = pyg4ometry.geant4.Material(name="G4_AIR", registry=reg)
+
+    # Optionally precheck and repair source STL
+    if precheck:
+        print("\nPre-checking STL file for watertightness...")
+        new_paths, report = _check_and_repair_stl_files([stl_file], repair=repair)
+        if report:
+            r = report[0]
+            print(f"  {Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
+        stl_file = Path(new_paths[0])
     part_material = pyg4ometry.geant4.Material(name="G4_Al", registry=reg)
     
     # Load STL file
@@ -854,15 +992,19 @@ def convert_stl_to_gdml(
     step_file: Path,
     output_file: Path,
     center_origin: bool = True,
+    precheck: bool = False,
+    repair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STL files + STEP assembly to GDML.
-    
+
     Args:
         stl_dir: Directory containing STL mesh files
         step_file: STEP file for placement information
         output_file: Path to output GDML file
         center_origin: If True, center geometry at world origin (default: True)
-    
+        precheck: If True, run STL pre-checks before conversion
+        repair: If True and precheck=True, attempt automated STL repairs
+
     Returns:
         pyg4ometry Registry containing the geometry
     """
@@ -885,8 +1027,12 @@ def convert_stl_to_gdml(
     if not stl_paths:
         raise FileNotFoundError(f"No STL files found in {stl_dir}")
 
-    print(f"Found {len(stl_paths)} STL files")
-
+    # Optionally precheck and attempt repairs
+    if precheck:
+        print("\nPre-checking STL files for watertightness...")
+        stl_paths, report = _check_and_repair_stl_files(stl_paths, repair=repair)
+        for r in report:
+            print(f"  {Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
     # Create registry and materials
     reg = pyg4ometry.geant4.Registry()
     world_material = pyg4ometry.geant4.Material(name="G4_AIR", registry=reg)
@@ -1115,6 +1261,16 @@ EXAMPLES:
         help="Perform geometry overlap checking (STEP-only workflow)",
     )
     parser.add_argument(
+        "--precheck",
+        action="store_true",
+        help="Check source meshes (STL/STEP) before conversion and optionally attempt repairs",
+    )
+    parser.add_argument(
+        "--repair",
+        action="store_true",
+        help="Attempt automatic repair on non-watertight STLs when used with --precheck",
+    )
+    parser.add_argument(
         "--center-origin",
         action="store_true",
         help="Center the geometry at world origin",
@@ -1154,7 +1310,13 @@ EXAMPLES:
         if args.check_overlaps:
             print("Warning: --check-overlaps not supported in single STL workflow")
         
-        convert_single_stl_to_gdml(stl_file, output_file, center_origin=args.center_origin)
+        convert_single_stl_to_gdml(
+            stl_file,
+            output_file,
+            center_origin=args.center_origin,
+            precheck=args.precheck,
+            repair=args.repair,
+        )
         
     elif args.stl_dir:
         # STL+STEP workflow
@@ -1173,7 +1335,14 @@ EXAMPLES:
         if args.check_overlaps:
             print("Warning: --check-overlaps not supported in STL+STEP workflow")
         
-        convert_stl_to_gdml(stl_dir, step_file, output_file, center_origin=args.center_origin)
+        convert_stl_to_gdml(
+            stl_dir,
+            step_file,
+            output_file,
+            center_origin=args.center_origin,
+            precheck=args.precheck,
+            repair=args.repair,
+        )
         
     else:
         # STEP-only workflow
@@ -1189,6 +1358,8 @@ EXAMPLES:
             use_hierarchy=not args.flat,
             check_overlaps=args.check_overlaps,
             center_origin=args.center_origin,
+            precheck=args.precheck,
+            repair=args.repair,
         )
     
     return 0
