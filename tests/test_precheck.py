@@ -52,3 +52,33 @@ def test_step_precheck_dryrun_ok(tmp_path):
     reg = convert_step_to_gdml(step_file, out_gdml, use_hierarchy=True, check_overlaps=False, center_origin=True, precheck=True, repair=False)
     assert out_gdml.exists(), "STEP GDML output missing"
     assert reg is not None
+
+
+def test_postcheck_and_repair_on_converted_single_stl(tmp_path):
+    # Create a broken cube and convert without precheck, then run postcheck/postrepair
+    cube = trimesh.creation.box(extents=(10,10,10))
+    faces = cube.faces.copy()
+    cube.faces = faces[:-1]
+    stl_file = tmp_path / "broken_cube2.stl"
+    cube.export(str(stl_file))
+    out_gdml = tmp_path / "out_post.gdml"
+
+    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True, precheck=False, repair=False, postcheck=True, postrepair=True)
+    # Find a tessellated solid and check that there is a replaced fixed version
+    found_repaired = False
+    for sname, solid in reg.solidDict.items():
+        if sname.endswith('-fixed') or sname.endswith('_fixed'):
+            # Inspect mesh
+            try:
+                m = solid.mesh()
+                vp = m.toVerticesAndPolygons()
+                import numpy as np
+                vertices = np.array(vp[0])
+                faces = np.array(vp[1])
+                import trimesh as _tm
+                tm = _tm.Trimesh(vertices=vertices, faces=faces, process=False)
+                if tm.is_watertight:
+                    found_repaired = True
+            except Exception:
+                pass
+    assert found_repaired, 'No repaired tessellated solid found (watertight) in registry'

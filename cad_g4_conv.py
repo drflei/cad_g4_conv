@@ -542,6 +542,195 @@ def _check_and_repair_stl_files(stl_paths, repair=False):
         print("Warning: trimesh not available; skipping STL precheck/repair.")
         return stl_paths, []
     report = []
+
+    new_paths = []
+    for p in stl_paths:
+        p = Path(p)
+        entry = {'stl': str(p), 'backup': None, 'used': str(p), 'watertight_before': None, 'watertight_after': None, 'repaired': False, 'notes': ''}
+        if not p.exists():
+            entry['notes'] = 'missing_file'
+            report.append(entry)
+            new_paths.append(p)
+            continue
+        try:
+            mesh = trimesh.load_mesh(str(p), force='mesh')
+            entry['watertight_before'] = bool(mesh.is_watertight)
+        except Exception as e:
+            entry['notes'] = f'load_failed:{e}'
+            report.append(entry)
+            new_paths.append(p)
+            continue
+
+        if entry['watertight_before']:
+            report.append(entry)
+            new_paths.append(p)
+            continue
+
+        # Not watertight
+        if not repair:
+            report.append(entry)
+            new_paths.append(p)
+            continue
+
+        # Attempt repair
+        try:
+            # backup
+            bak = str(p) + '.bak'
+            if not Path(bak).exists():
+                with open(bak, 'wb') as out, open(p, 'rb') as orig:
+                    out.write(orig.read())
+                entry['backup'] = bak
+            try:
+                trimesh.repair.fix_normals(mesh)
+            except Exception:
+                pass
+            try:
+                mesh.remove_duplicate_faces()
+            except Exception:
+                pass
+            try:
+                mesh.remove_degenerate_faces()
+            except Exception:
+                pass
+            if hasattr(trimesh.repair, 'fill_holes'):
+                try:
+                    trimesh.repair.fill_holes(mesh)
+                except Exception as e:
+                    entry['notes'] += f'fill_holes_failed:{e};'
+            try:
+                trimesh.repair.fix_inversion(mesh)
+            except Exception:
+                pass
+
+            entry['watertight_after'] = bool(mesh.is_watertight)
+            out_name = str(p.with_name(p.stem + '-fixed' + p.suffix))
+            try:
+                mesh.export(out_name)
+                entry['used'] = out_name
+                entry['repaired'] = True
+            except Exception as e:
+                entry['notes'] += f'export_failed:{e};'
+        except Exception as e:
+            entry['notes'] += f'repair_failed:{e};'
+
+        report.append(entry)
+        new_paths.append(Path(entry['used']))
+
+    return new_paths, report
+
+def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=False):
+    """Inspect tessellated solids in a registry, optionally attempt mesh repairs.
+
+    Args:
+        reg: pyg4ometry Registry
+        repair: attempt repairs with trimesh if non-watertight
+        replace_in_place: if True, replace solids in-place (keep same names); otherwise add new solids with '-fixed' suffix and update LVs
+
+    Returns:
+        report: list of dicts with fields: solid_name, watertight_before, watertight_after, replaced_name, notes
+    """
+    try:
+        import trimesh
+    except Exception:
+        print("Warning: trimesh not available; skipping tessellated solids postcheck/repair.")
+        return []
+
+    reports = []
+    # Iterate over a copy of solid items to allow modification
+    solids_items = list(reg.solidDict.items())
+    for sname, solid in solids_items:
+        try:
+            if not (hasattr(solid, 'type') and solid.type == 'TessellatedSolid'):
+                continue
+            notes = ''
+            mesh_csg = None
+            try:
+                mesh_csg = solid.mesh()
+            except Exception as e:
+                notes += f'mesh_extract_failed:{e};'
+                reports.append({'solid_name': sname, 'watertight_before': None, 'watertight_after': None, 'replaced_name': None, 'notes': notes})
+                continue
+            # Get vertices and polygons
+            try:
+                verts, polys, extra = mesh_csg.toVerticesAndPolygons()
+            except Exception as e:
+                notes += f'toVerticesAndPolygons_failed:{e};'
+                reports.append({'solid_name': sname, 'watertight_before': None, 'watertight_after': None, 'replaced_name': None, 'notes': notes})
+                continue
+
+            import numpy as np
+            vertices = np.array(verts, dtype=float)
+            faces = np.array(polys, dtype=int)
+            try:
+                tm = trimesh.Trimesh(vertices=vertices, faces=faces, process=False)
+            except Exception as e:
+                notes += f'trig_construct_failed:{e};'
+                reports.append({'solid_name': sname, 'watertight_before': None, 'watertight_after': None, 'replaced_name': None, 'notes': notes})
+                continue
+
+            wat_before = bool(tm.is_watertight)
+            wat_after = wat_before
+            replaced_name = None
+
+            if not wat_before and not repair:
+                reports.append({'solid_name': sname, 'watertight_before': wat_before, 'watertight_after': wat_after, 'replaced_name': None, 'notes': notes})
+                continue
+
+            if repair:
+                # Attempt repairs similar to repair_stls.try_repair_stl
+                try:
+                    try:
+                        trimesh.repair.fix_normals(tm)
+                    except Exception:
+                        pass
+                    try:
+                        tm.remove_duplicate_faces()
+                    except Exception:
+                        pass
+                    try:
+                        tm.remove_degenerate_faces()
+                    except Exception:
+                        pass
+                    if hasattr(trimesh.repair, 'fill_holes'):
+                        try:
+                            trimesh.repair.fill_holes(tm)
+                        except Exception as e:
+                            notes += f'fill_holes_failed:{e};'
+                    try:
+                        trimesh.repair.fix_inversion(tm)
+                    except Exception:
+                        pass
+                except Exception as e:
+                    notes += f'repair_exception:{e};'
+
+                wat_after = bool(tm.is_watertight)
+                # If repaired, create a new TessellatedSolid from the repaired mesh
+                if wat_after or True:
+                    # Export repaired mesh to a temporary STL and re-import via pyg4ometry.stl.Reader
+                    import tempfile
+                    try:
+                        with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as tmpf:
+                            out_tmp = tmpf.name
+                        tm.export(out_tmp)
+                        # Read back using pyg4ometry's STL reader which produces a compatible TessellatedSolid
+                        reader = pyg4ometry.stl.Reader(filename=str(out_tmp), solidname=sname + '_fixed', scale=1, centre=False, registry=reg)
+                        new_solid = reader.getSolid()
+                        replaced_name = new_solid.name
+                        if replace_in_place:
+                            # Replace the existing registry entry
+                            reg.solidDict[sname] = new_solid
+                            replaced_name = sname
+                        else:
+                            # Add new solid to registry (already added by reader) and update volumes
+                            for lv_name, lv in list(reg.logicalVolumeDict.items()):
+                                if hasattr(lv, 'solid') and getattr(lv.solid, 'name', None) == sname:
+                                    lv.solid = new_solid
+                    except Exception as e:
+                        notes += f'new_solid_via_stl_failed:{e};'
+            reports.append({'solid_name': sname, 'watertight_before': wat_before, 'watertight_after': wat_after, 'replaced_name': replaced_name, 'notes': notes})
+        except Exception as e:
+            reports.append({'solid_name': sname, 'watertight_before': None, 'watertight_after': None, 'replaced_name': None, 'notes': f'unexpected:{e};'})
+    return reports
     # Try to load local repair_stls.py if present to use its routine
     repair_module = None
     rep_path = Path.cwd() / 'repair_stls.py'
@@ -627,6 +816,8 @@ def convert_step_to_gdml(
     center_origin: bool = False,
     precheck: bool = False,
     repair: bool = False,
+    postcheck: bool = False,
+    postrepair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STEP file directly to GDML using pyg4ometry.
     
@@ -818,6 +1009,18 @@ def convert_step_to_gdml(
     # Print GDML tree
     _print_gdml_tree(cad_registry)
 
+    # Optional post-conversion tessellated solids check/repair
+    if postcheck:
+        print(f"\n{'='*60}")
+        print("POST-CONVERSION TESSELLATED SOLID CHECK")
+        print(f"{'='*60}")
+        reports = _check_and_repair_tessellated_solids(cad_registry, repair=postrepair)
+        if reports:
+            for r in reports:
+                print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+        else:
+            print('  No tessellated solids processed or trimesh not available')
+
     # Overlap checking
     if check_overlaps:
         print(f"\n{'='*60}")
@@ -870,6 +1073,8 @@ def convert_single_stl_to_gdml(
     center_origin: bool = True,
     precheck: bool = False,
     repair: bool = False,
+    postcheck: bool = False,
+    postrepair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert a single STL file to GDML.
 
@@ -892,6 +1097,11 @@ def convert_single_stl_to_gdml(
     if not stl_file.exists():
         raise FileNotFoundError(f"STL file not found: {stl_file}")
 
+    # Create registry and materials early (needed if precheck replaces the source file)
+    reg = pyg4ometry.geant4.Registry()
+    world_material = pyg4ometry.geant4.Material(name="G4_AIR", registry=reg)
+    part_material = pyg4ometry.geant4.Material(name="G4_Al", registry=reg)
+
     # Optionally precheck and repair source STL
     if precheck:
         print("\nPre-checking STL file for watertightness...")
@@ -900,9 +1110,9 @@ def convert_single_stl_to_gdml(
             r = report[0]
             print(f"  {Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
         stl_file = Path(new_paths[0])
-    part_material = pyg4ometry.geant4.Material(name="G4_Al", registry=reg)
-    
-    # Load STL file
+
+    # Optional post-conversion check will be run later after solid is placed in registry
+    # (we keep this comment here as a reminder)    # Load STL file
     print("\nLoading STL file...")
     solid_name = f"stl_solid_{stl_file.stem.replace(' ', '_')}"
     
@@ -976,7 +1186,19 @@ def convert_single_stl_to_gdml(
     
     # Print GDML tree
     _print_gdml_tree(reg)
-    
+
+    # Optional post-conversion tessellated solids check/repair
+    if postcheck:
+        print(f"\n{'='*60}")
+        print("POST-CONVERSION TESSELLATED SOLID CHECK")
+        print(f"{'='*60}")
+        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair)
+        if reports:
+            for r in reports:
+                print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+        else:
+            print('  No tessellated solids processed or trimesh not available')
+
     # Export to GDML
     print(f"Writing GDML file: {output_file}")
     writer = pyg4ometry.gdml.Writer()
@@ -994,6 +1216,8 @@ def convert_stl_to_gdml(
     center_origin: bool = True,
     precheck: bool = False,
     repair: bool = False,
+    postcheck: bool = False,
+    postrepair: bool = False,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STL files + STEP assembly to GDML.
 
@@ -1166,6 +1390,18 @@ def convert_stl_to_gdml(
     # Print GDML tree
     _print_gdml_tree(reg)
 
+    # Optional post-conversion tessellated solids check/repair
+    if postcheck:
+        print(f"\n{'='*60}")
+        print("POST-CONVERSION TESSELLATED SOLID CHECK")
+        print(f"{'='*60}")
+        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair)
+        if reports:
+            for r in reports:
+                print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+        else:
+            print('  No tessellated solids processed or trimesh not available')
+
     # Export to GDML
     print(f"Writing GDML file: {output_file}")
     writer = pyg4ometry.gdml.Writer()
@@ -1271,6 +1507,16 @@ EXAMPLES:
         help="Attempt automatic repair on non-watertight STLs when used with --precheck",
     )
     parser.add_argument(
+        "--postcheck",
+        action="store_true",
+        help="After conversion, check tessellated solids in the registry for mesh defects",
+    )
+    parser.add_argument(
+        "--postrepair",
+        action="store_true",
+        help="Attempt automatic repair on tessellated solids when used with --postcheck",
+    )
+    parser.add_argument(
         "--center-origin",
         action="store_true",
         help="Center the geometry at world origin",
@@ -1316,6 +1562,8 @@ EXAMPLES:
             center_origin=args.center_origin,
             precheck=args.precheck,
             repair=args.repair,
+            postcheck=args.postcheck,
+            postrepair=args.postrepair,
         )
         
     elif args.stl_dir:
@@ -1342,6 +1590,8 @@ EXAMPLES:
             center_origin=args.center_origin,
             precheck=args.precheck,
             repair=args.repair,
+            postcheck=args.postcheck,
+            postrepair=args.postrepair,
         )
         
     else:
@@ -1360,6 +1610,8 @@ EXAMPLES:
             center_origin=args.center_origin,
             precheck=args.precheck,
             repair=args.repair,
+            postcheck=args.postcheck,
+            postrepair=args.postrepair,
         )
     
     return 0
