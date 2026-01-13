@@ -83,6 +83,10 @@ python cad_g4_conv.py --step-file input.STEP --check-overlaps
 python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/ --precheck --repair -o fixed.gdml
 # STEP-only precheck (dry-run tessellation test; use --repair to try local STEP repairs)
 python cad_g4_conv.py --step-file input.STEP --precheck --repair
+
+# Logging and repair-report example
+# Writes a CSV summarizing repairs and a debug log
+python cad_g4_conv.py --stl-file mesh.stl --precheck --repair --replace-in-place --repair-report repairs.csv --log-file convert.log --log-level DEBUG
 ```
 
 ### Centering Geometry
