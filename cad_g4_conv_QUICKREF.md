@@ -23,6 +23,12 @@ python cad_g4_conv.py --step-file input.STEP -o output.gdml
 # Check for overlaps
 python cad_g4_conv.py --step-file input.STEP --check-overlaps
 
+# Pre-check & Repair (new)
+# Run pre-checks on STLs/STEP and optionally attempt automatic STL repairs before conversion
+python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/ --precheck --repair -o fixed.gdml
+# STEP-only precheck (dry-run tessellation test; use --repair to try local STEP repairs)
+python cad_g4_conv.py --step-file input.STEP --precheck --repair
+
 # Center geometry at world origin
 python cad_g4_conv.py --step-file input.STEP --center-origin
 ```
