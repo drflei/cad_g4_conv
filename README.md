@@ -112,6 +112,15 @@ python cad_g4_conv.py --step-file complex.STEP --flat
 
 # 6. Center geometry at world origin
 python cad_g4_conv.py --step-file detector.STEP --center-origin
+
+# 7. Logging and repair report example ✅
+# Write detailed logs to 'convert.log' and attempt in-place repairs, writing a CSV report
+python cad_g4_conv.py --stl-file mesh.stl --precheck --repair --replace-in-place --repair-report repairs.csv --log-file convert.log --log-level DEBUG
+
+# Notes:
+# - `--replace-in-place` overwrites repaired STLs (a .bak file is kept as backup).
+# - `--repair-report` writes a CSV summary of pre/post repair status for auditing.
+# - `--log-file` / `--log-level` control logging output for debugging and reproducibility.
 ```
 
 ## Running from Other Directories

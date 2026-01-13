@@ -61,11 +61,36 @@ import argparse
 import contextlib
 import glob
 import io
+import logging
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pyg4ometry
+
+
+def configure_logging(logfile: str | None = None, level: str = "INFO") -> None:
+    """Configure root logger to output to console and optionally to a file."""
+    lvl = getattr(logging, level.upper(), logging.INFO)
+    root = logging.getLogger()
+    root.setLevel(lvl)
+
+    # Remove existing handlers to avoid duplicate logs in repeated calls
+    for h in list(root.handlers):
+        root.removeHandler(h)
+
+    fmt = logging.Formatter("%(asctime)s %(levelname)s: %(message)s")
+    ch = logging.StreamHandler()
+    ch.setFormatter(fmt)
+    root.addHandler(ch)
+
+    if logfile:
+        fh = logging.FileHandler(logfile)
+        fh.setFormatter(fmt)
+        root.addHandler(fh)
+
+
+logger = logging.getLogger(__name__)
 
 
 def _get_first_free_shape_name(reader: pyg4ometry.pyoce.Reader) -> str:
@@ -531,7 +556,7 @@ def _build_hierarchy_manually(reader: pyg4ometry.pyoce.Reader, root_label, reg, 
     return component_count
 
 
-def _check_and_repair_stl_files(stl_paths, repair=False):
+def _check_and_repair_stl_files(stl_paths, repair=False, replace_in_place=False):
     """Check STL files for watertightness and optionally attempt repairs.
     Returns: (new_paths, report_list)
     """
@@ -539,7 +564,7 @@ def _check_and_repair_stl_files(stl_paths, repair=False):
     try:
         import trimesh
     except Exception:
-        print("Warning: trimesh not available; skipping STL precheck/repair.")
+        logger.warning("trimesh not available; skipping STL precheck/repair.")
         return stl_paths, []
     report = []
 
@@ -608,6 +633,13 @@ def _check_and_repair_stl_files(stl_paths, repair=False):
                 mesh.export(out_name)
                 entry['used'] = out_name
                 entry['repaired'] = True
+                # if replace_in_place, overwrite original (keeping bak)
+                if replace_in_place:
+                    try:
+                        os.replace(out_name, str(p))
+                        entry['used'] = str(p)
+                    except Exception as e:
+                        entry['notes'] += f'replace_failed:{e};'
             except Exception as e:
                 entry['notes'] += f'export_failed:{e};'
         except Exception as e:
@@ -619,6 +651,16 @@ def _check_and_repair_stl_files(stl_paths, repair=False):
     return new_paths, report
 
 def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=False):
+    """Inspect tessellated solids in a registry, optionally attempt mesh repairs.
+
+    Args:
+        reg: pyg4ometry Registry
+        repair: attempt repairs with trimesh if non-watertight
+        replace_in_place: if True, replace solids in-place (keep same names); otherwise add new solids with '-fixed' suffix and update LVs
+
+    Returns:
+        report: list of dicts with fields: solid_name, watertight_before, watertight_after, replaced_name, notes
+    """
     """Inspect tessellated solids in a registry, optionally attempt mesh repairs.
 
     Args:
@@ -731,80 +773,33 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
         except Exception as e:
             reports.append({'solid_name': sname, 'watertight_before': None, 'watertight_after': None, 'replaced_name': None, 'notes': f'unexpected:{e};'})
     return reports
-    # Try to load local repair_stls.py if present to use its routine
-    repair_module = None
-    rep_path = Path.cwd() / 'repair_stls.py'
-    if rep_path.exists():
-        try:
-            spec = importlib.util.spec_from_file_location("repair_stls_local", str(rep_path))
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            repair_module = mod
-        except Exception:
-            repair_module = None
-    new_paths = []
-    for p in stl_paths:
-        p = Path(p)
-        entry = {'stl': str(p), 'watertight_before': None, 'repaired': False, 'used': str(p), 'notes': ''}
-        try:
-            mesh = trimesh.load_mesh(str(p), force='mesh')
-            entry['watertight_before'] = bool(mesh.is_watertight)
-        except Exception as e:
-            entry['notes'] = f'load_failed:{e}'
-            report.append(entry)
-            new_paths.append(p)
-            continue
-        if entry['watertight_before']:
-            new_paths.append(p)
-            report.append(entry)
-            continue
-        if not repair:
-            report.append(entry)
-            new_paths.append(p)
-            continue
-        # Attempt repair
-        if repair_module and hasattr(repair_module, 'try_repair_stl'):
-            try:
-                res = repair_module.try_repair_stl(str(p), backup=True)
-                if res.get('fixed'):
-                    entry['repaired'] = True
-                    entry['used'] = res.get('fixed')
-                entry['watertight_after'] = res.get('watertight_after')
-                entry['notes'] += res.get('notes','')
-            except Exception as e:
-                entry['notes'] += f'repair_failed:{e};'
-        else:
-            # Inline minimal repair
-            try:
-                trimesh.repair.fix_normals(mesh)
-            except Exception:
-                pass
-            try:
-                mesh.remove_duplicate_faces()
-            except Exception:
-                pass
-            try:
-                mesh.remove_degenerate_faces()
-            except Exception:
-                pass
-            if hasattr(trimesh.repair, 'fill_holes'):
-                try:
-                    trimesh.repair.fill_holes(mesh)
-                except Exception as e:
-                    entry['notes'] += f'fill_holes_failed:{e};'
-            out_name = str(p.with_name(p.stem + '-fixed' + p.suffix))
-            try:
-                mesh.export(out_name)
-                entry['repaired'] = True
-                entry['used'] = out_name
-                # re-load to check
-                mesh2 = trimesh.load_mesh(out_name, force='mesh')
-                entry['watertight_after'] = bool(mesh2.is_watertight)
-            except Exception as e:
-                entry['notes'] += f'export_failed:{e};'
-        new_paths.append(Path(entry['used']))
-        report.append(entry)
-    return new_paths, report
+
+
+def _write_repair_report(reports, csv_path):
+    """Write a CSV summary of repair reports.
+
+    The function accepts a list of dicts and writes a CSV with a union of keys as columns.
+    """
+    import csv
+    from pathlib import Path
+
+    if not reports:
+        logger.info("No repair records to write")
+        return
+    keys = sorted({k for r in reports for k in r.keys()})
+    try:
+        p = Path(csv_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with open(p, 'w', newline='') as fh:
+            writer = csv.DictWriter(fh, fieldnames=keys)
+            writer.writeheader()
+            for r in reports:
+                writer.writerow({k: r.get(k) for k in keys})
+        logger.info(f"Wrote repair report: {p}")
+    except Exception as e:
+        logger.exception(f"Failed to write repair report {csv_path}: {e}")
+
+
 
 
 def convert_step_to_gdml(
@@ -818,6 +813,8 @@ def convert_step_to_gdml(
     repair: bool = False,
     postcheck: bool = False,
     postrepair: bool = False,
+    replace_in_place: bool = False,
+    repair_report: str | None = None,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STEP file directly to GDML using pyg4ometry.
     
@@ -856,16 +853,17 @@ def convert_step_to_gdml(
     top_shape = reader.shapeTool.GetShape(top_label)
 
     # Optional STEP precheck: attempt a dry-run tessellation to catch issues early
+    all_reports = []
     if precheck:
-        print("\nPre-checking STEP tessellation (dry-run)...")
+        logger.info("Pre-checking STEP tessellation (dry-run)...")
         try:
             tmp_reg = pyg4ometry.geant4.Registry()
             _ = pyg4ometry.convert.oceShape_Geant4_Tessellated(name="_precheck_tmp", shape=top_shape, greg=tmp_reg, linDef=0.5, angDef=0.5)
-            print("  STEP tessellation test: OK")
+            logger.info("STEP tessellation test: OK")
         except Exception as e:
-            print(f"  STEP tessellation test failed: {e}")
+            logger.warning(f"STEP tessellation test failed: {e}")
             if repair:
-                print("  Attempting STEP repair via local repair_step_pyoce.py (if present)...")
+                logger.info("Attempting STEP repair via local repair_step_pyoce.py (if present)...")
                 try:
                     import importlib.util
                     rep_path = Path.cwd() / 'repair_step_pyoce.py'
@@ -876,24 +874,27 @@ def convert_step_to_gdml(
                         if hasattr(mod, 'repair_step_file'):
                             fixed = mod.repair_step_file(str(step_file))
                             if fixed:
-                                print(f"  STEP repair produced: {fixed}")
+                                logger.info(f"STEP repair produced: {fixed}")
+                                all_reports.append({'step_file': str(step_file), 'fixed_step': fixed, 'notes': 'step_repaired'})
                                 step_file = Path(fixed)
                                 reader = pyg4ometry.pyoce.Reader(str(step_file))
                                 top_label = reader.freeShapes().Value(1)
                                 top_shape = reader.shapeTool.GetShape(top_label)
-                                print("  Re-running tessellation test...")
+                                logger.info("Re-running tessellation test...")
                                 try:
                                     tmp_reg2 = pyg4ometry.geant4.Registry()
                                     _ = pyg4ometry.convert.oceShape_Geant4_Tessellated(name="_precheck_tmp2", shape=top_shape, greg=tmp_reg2, linDef=0.5, angDef=0.5)
-                                    print("  Re-test OK")
+                                    logger.info("Re-test OK")
                                 except Exception as e2:
-                                    print(f"  Re-test failed: {e2}")
+                                    logger.warning(f"Re-test failed: {e2}")
                         else:
-                            print("  repair_step_pyoce module found but no 'repair_step_file' entry point")
+                            logger.warning("repair_step_pyoce module found but no 'repair_step_file' entry point")
                     else:
-                        print("  No repair_step_pyoce.py found; please run it manually to repair the STEP file")
+                        logger.warning("No repair_step_pyoce.py found; please run it manually to repair the STEP file")
                 except Exception as e2:
-                    print(f"  STEP repair attempt failed: {e2}")
+                    logger.exception(f"STEP repair attempt failed: {e2}")
+        if repair_report and all_reports:
+            _write_repair_report(all_reports, repair_report)
 
     cad_registry = None
 
@@ -1011,40 +1012,43 @@ def convert_step_to_gdml(
 
     # Optional post-conversion tessellated solids check/repair
     if postcheck:
-        print(f"\n{'='*60}")
-        print("POST-CONVERSION TESSELLATED SOLID CHECK")
-        print(f"{'='*60}")
-        reports = _check_and_repair_tessellated_solids(cad_registry, repair=postrepair)
+        logger.info("%s", "=" * 60)
+        logger.info("POST-CONVERSION TESSELLATED SOLID CHECK")
+        logger.info("%s", "=" * 60)
+        reports = _check_and_repair_tessellated_solids(cad_registry, repair=postrepair, replace_in_place=replace_in_place)
         if reports:
             for r in reports:
-                print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+                logger.info(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if repair_report:
+                all_reports.extend(reports)
+                _write_repair_report(all_reports, repair_report)
         else:
-            print('  No tessellated solids processed or trimesh not available')
+            logger.info('  No tessellated solids processed or trimesh not available')
 
     # Overlap checking
     if check_overlaps:
-        print(f"\n{'='*60}")
-        print("OVERLAP CHECKING")
-        print(f"{'='*60}")
+        logger.info("%s", "=" * 60)
+        logger.info("OVERLAP CHECKING")
+        logger.info("%s", "=" * 60)
         world_lv = cad_registry.getWorldVolume()
-        print("Checking for overlaps...")
+        logger.info("Checking for overlaps...")
         try:
             # Use mesh-based overlap checking on the world logical volume.
             # This can raise RuntimeError from the underlying CGAL/mesh library
             # for very complex or invalid tessellated meshes.
             overlap_count = world_lv.checkOverlaps(recursive=True, coplanar=True)
-            print(f"Overlap check completed, {overlap_count} overlaps reported.")
+            logger.info(f"Overlap check completed, {overlap_count} overlaps reported.")
         except RuntimeError as e:
             import traceback
-            print("\n⚠ Mesh-based overlap checking failed:")
-            print(f"  {type(e).__name__}: {e}")
-            print("\nThe tessellated mesh operations raised an error (CGAL/pycgal). Possible causes:")
-            print("  - Very high-polygon or self-intersecting STL meshes")
-            print("  - Invalid mesh topology or non-manifold geometry")
-            print("  - Numerical robustness issues in the mesh library")
-            print("\nSuggested actions:")
-            print("  1) Simplify or repair the STL meshes (reduce polygon count or fix intersections).")
-            print("  2) Export the GDML and run Geant4's native overlap checker (use /geometry/test/run).")
+            logger.warning("Mesh-based overlap checking failed:")
+            logger.warning(f"  {type(e).__name__}: {e}")
+            logger.warning("The tessellated mesh operations raised an error (CGAL/pycgal). Possible causes:")
+            logger.warning("  - Very high-polygon or self-intersecting STL meshes")
+            logger.warning("  - Invalid mesh topology or non-manifold geometry")
+            logger.warning("  - Numerical robustness issues in the mesh library")
+            logger.warning("Suggested actions:")
+            logger.warning("  1) Simplify or repair the STL meshes (reduce polygon count or fix intersections).")
+            logger.warning("  2) Export the GDML and run Geant4's native overlap checker (use /geometry/test/run).")
             print("  3) Visual inspection with the VTK viewer to highlight overlaps.")
             print("\nStack trace (for debugging):")
             traceback.print_exc()
@@ -1075,6 +1079,8 @@ def convert_single_stl_to_gdml(
     repair: bool = False,
     postcheck: bool = False,
     postrepair: bool = False,
+    replace_in_place: bool = False,
+    repair_report: str | None = None,
 ) -> pyg4ometry.geant4.Registry:
     """Convert a single STL file to GDML.
 
@@ -1103,13 +1109,17 @@ def convert_single_stl_to_gdml(
     part_material = pyg4ometry.geant4.Material(name="G4_Al", registry=reg)
 
     # Optionally precheck and repair source STL
+    all_reports = []
     if precheck:
         print("\nPre-checking STL file for watertightness...")
-        new_paths, report = _check_and_repair_stl_files([stl_file], repair=repair)
+        new_paths, report = _check_and_repair_stl_files([stl_file], repair=repair, replace_in_place=replace_in_place)
+        all_reports.extend(report)
         if report:
             r = report[0]
             print(f"  {Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
         stl_file = Path(new_paths[0])
+        if repair_report:
+            _write_repair_report(all_reports, repair_report)
 
     # Optional post-conversion check will be run later after solid is placed in registry
     # (we keep this comment here as a reminder)    # Load STL file
@@ -1192,10 +1202,13 @@ def convert_single_stl_to_gdml(
         print(f"\n{'='*60}")
         print("POST-CONVERSION TESSELLATED SOLID CHECK")
         print(f"{'='*60}")
-        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair)
+        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair, replace_in_place=replace_in_place)
         if reports:
             for r in reports:
                 print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if repair_report:
+                all_reports.extend(reports)
+                _write_repair_report(all_reports, repair_report)
         else:
             print('  No tessellated solids processed or trimesh not available')
 
@@ -1218,6 +1231,8 @@ def convert_stl_to_gdml(
     repair: bool = False,
     postcheck: bool = False,
     postrepair: bool = False,
+    replace_in_place: bool = False,
+    repair_report: str | None = None,
 ) -> pyg4ometry.geant4.Registry:
     """Convert STL files + STEP assembly to GDML.
 
@@ -1248,15 +1263,21 @@ def convert_stl_to_gdml(
         + [Path(p) for p in glob.glob(str(stl_dir / "*.STL"))]
     )
 
+    all_reports = []  # accumulate pre/post repair reports for optional CSV output
+
     if not stl_paths:
         raise FileNotFoundError(f"No STL files found in {stl_dir}")
 
     # Optionally precheck and attempt repairs
+    all_reports = []
     if precheck:
-        print("\nPre-checking STL files for watertightness...")
-        stl_paths, report = _check_and_repair_stl_files(stl_paths, repair=repair)
+        logger.info("Pre-checking STL files for watertightness...")
+        stl_paths, report = _check_and_repair_stl_files(stl_paths, repair=repair, replace_in_place=replace_in_place)
+        all_reports.extend(report)
         for r in report:
-            print(f"  {Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
+            logger.info(f"{Path(r['stl']).name}: watertight_before={r.get('watertight_before')} repaired={r.get('repaired')} used={Path(r['used']).name} notes={r.get('notes')}")
+        if repair_report:
+            _write_repair_report(all_reports, repair_report)
     # Create registry and materials
     reg = pyg4ometry.geant4.Registry()
     world_material = pyg4ometry.geant4.Material(name="G4_AIR", registry=reg)
@@ -1395,10 +1416,12 @@ def convert_stl_to_gdml(
         print(f"\n{'='*60}")
         print("POST-CONVERSION TESSELLATED SOLID CHECK")
         print(f"{'='*60}")
-        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair)
+        reports = _check_and_repair_tessellated_solids(reg, repair=postrepair, replace_in_place=replace_in_place)
         if reports:
             for r in reports:
                 print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if repair_report:
+                _write_repair_report(reports, repair_report)
         else:
             print('  No tessellated solids processed or trimesh not available')
 
@@ -1517,6 +1540,29 @@ EXAMPLES:
         help="Attempt automatic repair on tessellated solids when used with --postcheck",
     )
     parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to write detailed log output (optional)",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="INFO",
+        help="Logging level: DEBUG, INFO, WARNING, ERROR (default: INFO)",
+    )
+    parser.add_argument(
+        "--replace-in-place",
+        action="store_true",
+        help="Overwrite original files with repaired versions (backups kept)",
+    )
+    parser.add_argument(
+        "--repair-report",
+        type=str,
+        default=None,
+        help="Write a CSV summary of repairs to the specified path",
+    )
+    parser.add_argument(
         "--center-origin",
         action="store_true",
         help="Center the geometry at world origin",
@@ -1524,6 +1570,8 @@ EXAMPLES:
     
     args = parser.parse_args()
     
+    # Configure logging early based on CLI args
+    configure_logging(args.log_file, level=args.log_level)
     output_file = Path(args.output)
     
     # Validate inputs
@@ -1564,6 +1612,8 @@ EXAMPLES:
             repair=args.repair,
             postcheck=args.postcheck,
             postrepair=args.postrepair,
+            replace_in_place=args.replace_in_place,
+            repair_report=args.repair_report,
         )
         
     elif args.stl_dir:
@@ -1592,6 +1642,8 @@ EXAMPLES:
             repair=args.repair,
             postcheck=args.postcheck,
             postrepair=args.postrepair,
+            replace_in_place=args.replace_in_place,
+            repair_report=args.repair_report,
         )
         
     else:
@@ -1612,6 +1664,8 @@ EXAMPLES:
             repair=args.repair,
             postcheck=args.postcheck,
             postrepair=args.postrepair,
+            replace_in_place=args.replace_in_place,
+            repair_report=args.repair_report,
         )
     
     return 0
