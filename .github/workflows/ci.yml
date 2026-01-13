@@ -57,26 +57,26 @@ jobs:
         run: |
           # Prepare mesh, but skip if required packages aren't available
           python - <<'PY'
-import traceback
-from pathlib import Path
-try:
-    import trimesh
-    import pyg4ometry
-except Exception as e:
-    print('Skipping smoke test: required Python packages not available:', e)
-    Path('tests/tmp_ci').mkdir(parents=True, exist_ok=True)
-    Path('tests/tmp_ci/skip').write_text(str(e))
-    raise SystemExit(0)
+          import traceback
+          from pathlib import Path
+          try:
+              import trimesh
+              import pyg4ometry
+          except Exception as e:
+              print('Skipping smoke test: required Python packages not available:', e)
+              Path('tests/tmp_ci').mkdir(parents=True, exist_ok=True)
+              Path('tests/tmp_ci/skip').write_text(str(e))
+              raise SystemExit(0)
 
-p = Path('tests/tmp_ci')
-p.mkdir(parents=True, exist_ok=True)
-cube = trimesh.creation.box(extents=(10,10,10))
-faces = cube.faces.copy()
-cube.faces = faces[:-1]
-stl = p / 'broken_ci.stl'
-cube.export(str(stl))
-print('Wrote', stl)
-PY
+          p = Path('tests/tmp_ci')
+          p.mkdir(parents=True, exist_ok=True)
+          cube = trimesh.creation.box(extents=(10,10,10))
+          faces = cube.faces.copy()
+          cube.faces = faces[:-1]
+          stl = p / 'broken_ci.stl'
+          cube.export(str(stl))
+          print('Wrote', stl)
+          PY
           if [ -f tests/tmp_ci/skip ]; then echo "Smoke test skipped: packages missing"; exit 0; fi
 
           # Run conversion; on failure dump log if present for debugging
