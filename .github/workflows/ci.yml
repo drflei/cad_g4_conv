@@ -28,6 +28,18 @@ jobs:
           if [ -f "cad_g4_conv/requirements.txt" ]; then pip install -r cad_g4_conv/requirements.txt; fi
           pip install pytest trimesh pyg4ometry
 
+      - name: Lint: Black (format)
+        run: |
+          pip install black
+          echo "Running black --check on codebase..."
+          black --check cad_g4_conv tests || (echo "Black formatting issues found. Run 'black cad_g4_conv tests' locally to fix." && exit 1)
+
+      - name: Lint: Flake8 (style)
+        run: |
+          pip install flake8
+          echo "Running flake8..."
+          flake8 cad_g4_conv tests --max-line-length=88
+
       - name: Run tests
         working-directory: ./cad_g4_conv
         run: |
