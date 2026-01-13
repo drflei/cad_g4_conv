@@ -46,7 +46,7 @@ jobs:
           flake8 cad_g4_conv tests --max-line-length=88 || echo "Flake8 reported issues."
 
       - name: Run tests
-        working-directory: ./cad_g4_conv
+        working-directory: cad_g4_conv
         run: |
           # Skip tests if essential packages are not available on the runner
           python - <<'PY'
@@ -70,7 +70,7 @@ jobs:
           if [ -f pip-install.log ]; then echo "--- pip-install.log (first 200 lines) ---" && head -n 200 pip-install.log; else echo "pip-install.log not found"; fi
 
       - name: "Smoke test: repair-report and logs"
-        working-directory: ./cad_g4_conv
+        working-directory: cad_g4_conv
         run: |
           # Prepare mesh, but skip if required packages aren't available
           python - <<'PY'
