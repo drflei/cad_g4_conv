@@ -31,13 +31,13 @@ jobs:
           pip install pytest trimesh pyg4ometry 2>&1 | tee -a pip-install.log || (echo "pip install step reported failures; see pip-install.log" && true)
 
 
-      - name: Lint: Black (format)
+      - name: "Lint: Black (format)"
         run: |
           pip install black
           echo "Running black --check on codebase..."
           black --check cad_g4_conv tests || (echo "Black formatting issues found. Run 'black cad_g4_conv tests' locally to fix." && exit 1)
 
-      - name: Lint: Flake8 (style)
+      - name: "Lint: Flake8 (style)"
         run: |
           pip install flake8
           echo "Running flake8..."
@@ -52,7 +52,7 @@ jobs:
         run: |
           if [ -f pip-install.log ]; then echo "--- pip-install.log (first 200 lines) ---" && head -n 200 pip-install.log; else echo "pip-install.log not found"; fi
 
-      - name: Smoke test: repair-report and logs
+      - name: "Smoke test: repair-report and logs"
         working-directory: ./cad_g4_conv
         run: |
           # Prepare mesh, but skip if required packages aren't available
