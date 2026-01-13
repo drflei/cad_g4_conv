@@ -2,6 +2,19 @@
 
 A collection of tools for converting CAD files (STEP, STL) to GDML for use in Geant4 simulations.
 
+## Requirements
+
+- Python 3.10 or above
+- pyg4ometry >= 1.0.0
+- vtk >= 9.0.0
+
+Install dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Overview
+
 Converting CAD to GDML/Geant4 requires care; preparing the CAD model before conversion greatly improves results. Recommended best practices:
 
 - Exclude unimportant small parts (connectors, screws, bolts and similar fasteners and their cuts). Removing these reduces model complexity and speeds processing.
