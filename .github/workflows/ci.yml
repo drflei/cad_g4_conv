@@ -103,14 +103,14 @@ jobs:
       - name: Upload CI artifacts (repair report & logs)
         uses: actions/upload-artifact@v4
         with:
-          name: ci-repair-artifacts
+          name: ci-repair-artifacts-${{ github.run_id }}-${{ matrix.python-version }}
           path: cad_g4_conv/tests/tmp_ci/**/*
 
       - name: Upload test results and logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-artifacts
+          name: ci-artifacts-${{ github.run_id }}-${{ matrix.python-version }}
           path: |
             cad_g4_conv/.pytest_cache/**
             pip-install.log
