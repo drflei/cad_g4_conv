@@ -47,7 +47,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cd cad_g4_conv
+          if [ -d "cad_g4_conv" ]; then cd cad_g4_conv; fi
           # Skip tests if essential packages are not available on the runner
           python - <<'PY'
           import importlib, sys
@@ -71,7 +71,7 @@ jobs:
 
       - name: "Smoke test: repair-report and logs"
         run: |
-          cd cad_g4_conv
+          if [ -d "cad_g4_conv" ]; then cd cad_g4_conv; fi
           # Prepare mesh, but skip if required packages aren't available
           python - <<'PY'
           import traceback
