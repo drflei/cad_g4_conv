@@ -45,6 +45,31 @@ jobs:
         run: |
           pytest -q
 
+      - name: Smoke test: repair-report and logs
+        working-directory: ./cad_g4_conv
+        run: |
+          python - <<'PY'
+import trimesh
+from pathlib import Path
+p = Path('tests/tmp_ci')
+p.mkdir(parents=True, exist_ok=True)
+cube = trimesh.creation.box(extents=(10,10,10))
+faces = cube.faces.copy()
+cube.faces = faces[:-1]
+stl = p / 'broken_ci.stl'
+cube.export(str(stl))
+print('Wrote', stl)
+PY
+          python cad_g4_conv.py --stl-file tests/tmp_ci/broken_ci.stl --precheck --repair --repair-report tests/tmp_ci/repairs.csv --log-file tests/tmp_ci/convert.log --log-level DEBUG
+          if [ ! -f tests/tmp_ci/repairs.csv ]; then echo "repairs.csv missing"; exit 2; fi
+          if [ ! -f tests/tmp_ci/convert.log ]; then echo "convert.log missing"; exit 2; fi
+
+      - name: Upload CI artifacts (repair report & logs)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-repair-artifacts
+          path: cad_g4_conv/tests/tmp_ci/**/*
+
       - name: Upload test results
         if: failure()
         uses: actions/upload-artifact@v4
