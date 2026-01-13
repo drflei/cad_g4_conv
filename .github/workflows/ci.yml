@@ -21,12 +21,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
+      - name: Install dependencies (capture logs)
         run: |
-          python -m pip install --upgrade pip
-          # Install project requirements and testing deps
-          if [ -f "cad_g4_conv/requirements.txt" ]; then pip install -r cad_g4_conv/requirements.txt; fi
-          pip install pytest trimesh pyg4ometry
+          set -o pipefail
+          python -m pip install --upgrade pip 2>&1 | tee pip-install.log
+          # Install project requirements and testing deps, capturing pip output
+          if [ -f "cad_g4_conv/requirements.txt" ]; then pip install -r cad_g4_conv/requirements.txt 2>&1 | tee -a pip-install.log; fi
+          pip install pytest trimesh pyg4ometry 2>&1 | tee -a pip-install.log || (echo "pip install step failed; see pip-install.log" && cat pip-install.log && exit 1)
+
 
       - name: Lint: Black (format)
         run: |
@@ -84,9 +86,12 @@ PY
           name: ci-repair-artifacts
           path: cad_g4_conv/tests/tmp_ci/**/*
 
-      - name: Upload test results
+      - name: Upload test results and logs
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-failures
-          path: cad_g4_conv/.pytest_cache || .
+          name: ci-failure-artifacts
+          path: |
+            cad_g4_conv/.pytest_cache || .
+            pip-install.log || .
+            cad_g4_conv/tests/tmp_ci/**/* || .
