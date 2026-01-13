@@ -696,7 +696,33 @@ def convert_step_to_gdml(
         print(f"{'='*60}")
         world_lv = cad_registry.getWorldVolume()
         print("Checking for overlaps...")
-        overlap_count = world_lv.checkOverlaps()
+        try:
+            # Use mesh-based overlap checking on the world logical volume.
+            # This can raise RuntimeError from the underlying CGAL/mesh library
+            # for very complex or invalid tessellated meshes.
+            overlap_count = world_lv.checkOverlaps(recursive=True, coplanar=True)
+            print(f"Overlap check completed, {overlap_count} overlaps reported.")
+        except RuntimeError as e:
+            import traceback
+            print("\n⚠ Mesh-based overlap checking failed:")
+            print(f"  {type(e).__name__}: {e}")
+            print("\nThe tessellated mesh operations raised an error (CGAL/pycgal). Possible causes:")
+            print("  - Very high-polygon or self-intersecting STL meshes")
+            print("  - Invalid mesh topology or non-manifold geometry")
+            print("  - Numerical robustness issues in the mesh library")
+            print("\nSuggested actions:")
+            print("  1) Simplify or repair the STL meshes (reduce polygon count or fix intersections).")
+            print("  2) Export the GDML and run Geant4's native overlap checker (use /geometry/test/run).")
+            print("  3) Visual inspection with the VTK viewer to highlight overlaps.")
+            print("\nStack trace (for debugging):")
+            traceback.print_exc()
+            overlap_count = None
+        except Exception as e:
+            import traceback
+            print("\n⚠ Unexpected error during overlap checking:")
+            print(f"  {type(e).__name__}: {e}")
+            traceback.print_exc()
+            overlap_count = None
         print(f"{'='*60}\n")
 
     # Export to GDML
