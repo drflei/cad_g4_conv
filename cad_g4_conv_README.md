@@ -1,4 +1,4 @@
-# CAD to Geant4 Converter (cad_g4_app.py)
+# CAD to Geant4 Converter (cad_g4_conv.py)
 
 Unified application merging `step_g4_app.py` and `stl_g4_app.py` functionality with maximum use of pyg4ometry features.
 
@@ -36,27 +36,27 @@ pip install pyg4ometry vtk
 ### STEP Native Conversion (Hierarchy Mode)
 ```bash
 # Maintain assembly structure with CSG primitives
-python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
+python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
 
 # Custom output file
-python cad_g4_app.py --step-file input.STEP -o output.gdml
+python cad_g4_conv.py --step-file input.STEP -o output.gdml
 ```
 
 ### STEP Flat Mode (Single Tessellated Solid)
 ```bash
 # More robust for complex assemblies
-python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
+python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
 ```
 
 ### STL+STEP Mesh Conversion
 ```bash
 # Use STL meshes with STEP placement data
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
     --stl-dir CAD_files/Stacked-Trays/STLs
 
 # Custom output
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file assembly.STEP \
     --stl-dir STLs/ \
     -o custom_output.gdml
@@ -65,25 +65,25 @@ python cad_g4_app.py \
 ### Single STL Conversion
 ```bash
 # Convert a single STL file (quickest method)
-python cad_g4_app.py --stl-file mesh.stl
+python cad_g4_conv.py --stl-file mesh.stl
 
 # With custom output
-python cad_g4_app.py --stl-file part.stl -o part.gdml
+python cad_g4_conv.py --stl-file part.stl -o part.gdml
 ```
 
 ### Overlap Checking
 ```bash
 # Check for geometry overlaps (STEP-only workflow)
-python cad_g4_app.py --step-file input.STEP --check-overlaps
+python cad_g4_conv.py --step-file input.STEP --check-overlaps
 ```
 
 ### Centering Geometry
 ```bash
 # Center geometry at world origin (applies offset to all placements)
-python cad_g4_app.py --step-file input.STEP --center-origin
+python cad_g4_conv.py --step-file input.STEP --center-origin
 
 # Center STL+STEP geometry
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file assembly.STEP \
     --stl-dir STLs/ \
     --center-origin \
@@ -234,14 +234,14 @@ This tool maximizes use of pyg4ometry capabilities:
 ## Related Tools
 
 - **run_vtkviewer.py**: Interactive 3D viewer for GDML, STL, STEP, FLUKA files
-- **step_g4_app.py**: Original STEP-only converter (deprecated, use cad_g4_app.py)
-- **stl_g4_app.py**: Original STL+STEP converter (deprecated, use cad_g4_app.py)
+- **step_g4_app.py**: Original STEP-only converter (deprecated, use cad_g4_conv.py)
+- **stl_g4_app.py**: Original STL+STEP converter (deprecated, use cad_g4_conv.py)
 
 ## Example Workflow
 
 ```bash
 # 1. Convert CAD to GDML
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP \
     -o hepi.gdml \
     --check-overlaps
@@ -250,13 +250,13 @@ python cad_g4_app.py \
 python run_vtkviewer.py hepi.gdml
 
 # 3. If overlaps are problematic, try flat mode
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP \
     -o hepi_flat.gdml \
     --flat
 
 # 4. Or try STL+STEP mode if STLs available
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP \
     --stl-dir CAD_files/HEPI-SiO2/STLs \
     -o hepi_mesh.gdml

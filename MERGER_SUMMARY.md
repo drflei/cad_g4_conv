@@ -1,4 +1,4 @@
-# Merger Summary: step_g4_app.py + stl_g4_app.py → cad_g4_app.py
+# Merger Summary: step_g4_app.py + stl_g4_app.py → cad_g4_conv.py
 
 ## Overview
 
@@ -41,12 +41,12 @@ Successfully merged two specialized CAD conversion tools into a unified applicat
 - Bounding box calculations
 - Matrix operations for transforms
 
-## Unified Application: cad_g4_app.py (784 lines)
+## Unified Application: cad_g4_conv.py (784 lines)
 
 ### Architecture
 
 ```
-cad_g4_app.py
+cad_g4_conv.py
 ├── Common Utilities
 │   ├── _get_first_free_shape_name()    [from step_g4_app]
 │   ├── _print_step_tree()               [from stl_g4_app]
@@ -112,7 +112,7 @@ cad_g4_app.py
 
 ### Feature Matrix
 
-| Feature | step_g4_app | stl_g4_app | cad_g4_app |
+| Feature | step_g4_app | stl_g4_app | cad_g4_conv |
 |---------|-------------|------------|------------|
 | STEP native conversion | ✓ | ✗ | ✓ |
 | STL mesh conversion | ✗ | ✓ | ✓ |
@@ -143,20 +143,20 @@ python stl_g4_app.py --step-file assembly.STEP --stl-dir STLs/
 
 ```bash
 # STEP native (auto-detected)
-python cad_g4_app.py --step-file input.STEP
+python cad_g4_conv.py --step-file input.STEP
 
 # STL+STEP (auto-detected)
-python cad_g4_app.py --step-file assembly.STEP --stl-dir STLs/
+python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
 
 # With options
-python cad_g4_app.py --step-file input.STEP --flat --check-overlaps
+python cad_g4_conv.py --step-file input.STEP --flat --check-overlaps
 ```
 
 ### Testing Results
 
 #### 1. STEP Native Conversion (Hierarchy)
 ```bash
-python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
+python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
 ```
 ✓ Successfully converted with 10 volumes
 ✓ Maintained assembly hierarchy
@@ -165,7 +165,7 @@ python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
 
 #### 2. STEP Flat Mode
 ```bash
-python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
+python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
 ```
 ✓ Successfully converted to single tessellated solid
 ✓ 2 total volumes (world + part)
@@ -173,7 +173,7 @@ python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
 
 #### 3. Overlap Checking
 ```bash
-python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --check-overlaps
+python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --check-overlaps
 ```
 ✓ Detected 6 overlaps
 ✓ Detailed overlap reporting
@@ -181,7 +181,7 @@ python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --check-over
 
 #### 4. STL+STEP Mesh Conversion
 ```bash
-python cad_g4_app.py --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
+python cad_g4_conv.py --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
                       --stl-dir CAD_files/Stacked-Trays/STLs
 ```
 ✓ Loaded 13 STL files
@@ -191,7 +191,7 @@ python cad_g4_app.py --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
 
 ### Code Statistics
 
-| Metric | step_g4_app | stl_g4_app | cad_g4_app | Change |
+| Metric | step_g4_app | stl_g4_app | cad_g4_conv | Change |
 |--------|-------------|------------|------------|--------|
 | Lines of code | 321 | 645 | 784 | -182 lines |
 | Functions | 2 | 12 | 12 | Consolidated |
@@ -239,8 +239,8 @@ python stl_g4_app.py --step-file assembly.STEP --stl-dir STLs/
 **New**:
 ```bash
 # Use single tool for both workflows
-python cad_g4_app.py --step-file input.STEP
-python cad_g4_app.py --step-file assembly.STEP --stl-dir STLs/
+python cad_g4_conv.py --step-file input.STEP
+python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
 ```
 
 #### For Developers
@@ -283,4 +283,4 @@ The merger successfully combines the strengths of both tools while:
 - Maintaining backward compatibility
 - Enabling future enhancements
 
-The unified `cad_g4_app.py` is production-ready and tested with real-world CAD files.
+The unified `cad_g4_conv.py` is production-ready and tested with real-world CAD files.

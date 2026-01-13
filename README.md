@@ -17,7 +17,7 @@ When exporting from your CAD tool:
 
 Note: GDML output typically lacks detailed material assignments. Post-process the GDML with `gdml-editor` to add or correct materials: https://github.com/drflei/gdml-editor
 
-## Main Application: cad_g4_app.py
+## Main Application: cad_g4_conv.py
 
 Unified converter supporting three workflows:
 
@@ -25,32 +25,32 @@ Unified converter supporting three workflows:
 
 ```bash
 # STEP native conversion
-python cad_g4_app.py --step-file assembly.STEP
+python cad_g4_conv.py --step-file assembly.STEP
 
 # STL+STEP mesh conversion
-python cad_g4_app.py --step-file assembly.STEP --stl-dir STLs/
+python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
 
 # Single STL conversion
-python cad_g4_app.py --stl-file mesh.stl
+python cad_g4_conv.py --stl-file mesh.stl
 ```
 
 ## Files in This Directory
 
 ### Main Tools
-- **cad_g4_app.py** - Unified CAD to GDML converter (recommended)
+- **cad_g4_conv.py** - Unified CAD to GDML converter (recommended)
 - **step_g4_app.py** - Original STEP-only converter (legacy)
 - **stl_g4_app.py** - Original STL+STEP converter (legacy)
 
 ### Documentation
-- **cad_g4_app_README.md** - Complete user guide
-- **cad_g4_app_QUICKREF.md** - Quick reference and cheatsheet
+- **cad_g4_conv_README.md** - Complete user guide
+- **cad_g4_conv_QUICKREF.md** - Quick reference and cheatsheet
 - **SINGLE_STL_QUICKSTART.md** - Quick start for single STL workflow
 - **MERGER_SUMMARY.md** - Technical details of the unified app
 - **SINGLE_STL_FEATURE.md** - Single STL feature documentation
 
 ### Scripts
 - **demo_all_workflows.sh** - Demonstrates all three workflows
-- **test_cad_g4_app.sh** - Automated testing script
+- **test_cad_g4_conv.sh** - Automated testing script
 
 ## Installation
 
@@ -62,7 +62,7 @@ pip install pyg4ometry vtk
 
 ## Usage
 
-See [cad_g4_app_README.md](cad_g4_app_README.md) for complete documentation.
+See [cad_g4_conv_README.md](cad_g4_conv_README.md) for complete documentation.
 
 ### Three Workflows
 
@@ -76,25 +76,25 @@ See [cad_g4_app_README.md](cad_g4_app_README.md) for complete documentation.
 
 ```bash
 # 1. STEP native with hierarchy
-python cad_g4_app.py --step-file detector.STEP -o detector.gdml
+python cad_g4_conv.py --step-file detector.STEP -o detector.gdml
 
 # 2. STL+STEP with auto-sized world
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file assembly.STEP \
     --stl-dir parts/ \
     -o assembly.gdml
 
 # 3. Single STL (simplest)
-python cad_g4_app.py --stl-file housing.stl -o housing.gdml
+python cad_g4_conv.py --stl-file housing.stl -o housing.gdml
 
 # 4. With overlap checking
-python cad_g4_app.py --step-file detector.STEP --check-overlaps
+python cad_g4_conv.py --step-file detector.STEP --check-overlaps
 
 # 5. Flat mode (robust fallback)
-python cad_g4_app.py --step-file complex.STEP --flat
+python cad_g4_conv.py --step-file complex.STEP --flat
 
 # 6. Center geometry at world origin
-python cad_g4_app.py --step-file detector.STEP --center-origin
+python cad_g4_conv.py --step-file detector.STEP --center-origin
 ```
 
 ## Running from Other Directories
@@ -103,17 +103,17 @@ You can run the tools from anywhere by specifying the full path:
 
 ```bash
 # From any directory
-python ~/cad_g4_app/cad_g4_app.py --stl-file /path/to/mesh.stl
+python ~/cad_g4_conv/cad_g4_conv.py --stl-file /path/to/mesh.stl
 ```
 
 Or add to PATH:
 
 ```bash
 # Add to ~/.bashrc
-export PATH="$HOME/cad_g4_app:$PATH"
+export PATH="$HOME/cad_g4_conv:$PATH"
 
 # Then use directly
-cad_g4_app.py --stl-file mesh.stl
+cad_g4_conv.py --stl-file mesh.stl
 ```
 
 ## Demo
@@ -121,7 +121,7 @@ cad_g4_app.py --stl-file mesh.stl
 Run the comprehensive demo to see all workflows in action:
 
 ```bash
-cd ~/cad_g4_app
+cd ~/cad_g4_conv
 ./demo_all_workflows.sh
 ```
 
@@ -130,8 +130,8 @@ cd ~/cad_g4_app
 Run automated tests:
 
 ```bash
-cd ~/cad_g4_app
-./test_cad_g4_app.sh
+cd ~/cad_g4_conv
+./test_cad_g4_conv.sh
 ```
 
 ## Visualization
@@ -145,7 +145,7 @@ python ~/CLAIRE/run_vtkviewer.py output.gdml
 ## Help
 
 ```bash
-python cad_g4_app.py --help
+python cad_g4_conv.py --help
 ```
 
 ## Features
@@ -188,8 +188,8 @@ This suite maximizes pyg4ometry capabilities:
 ## Support
 
 For detailed usage, see:
-- [cad_g4_app_README.md](cad_g4_app_README.md) - Complete guide
-- [cad_g4_app_QUICKREF.md](cad_g4_app_QUICKREF.md) - Quick reference
+- [cad_g4_conv_README.md](cad_g4_conv_README.md) - Complete guide
+- [cad_g4_conv_QUICKREF.md](cad_g4_conv_QUICKREF.md) - Quick reference
 - [SINGLE_STL_QUICKSTART.md](SINGLE_STL_QUICKSTART.md) - Single STL guide
 
 ## License

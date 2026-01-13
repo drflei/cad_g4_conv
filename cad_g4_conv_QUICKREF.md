@@ -1,4 +1,4 @@
-# Quick Reference: cad_g4_app.py
+# Quick Reference: cad_g4_conv.py
 
 ## Command Cheatsheet
 
@@ -6,49 +6,49 @@
 
 ```bash
 # STEP native conversion (auto-detects hierarchy mode)
-python cad_g4_app.py --step-file input.STEP
+python cad_g4_conv.py --step-file input.STEP
 
 # STEP flat mode (robust fallback)
-python cad_g4_app.py --step-file input.STEP --flat
+python cad_g4_conv.py --step-file input.STEP --flat
 
 # STL+STEP mesh conversion (auto-detects)
-python cad_g4_app.py --step-file assembly.STEP --stl-dir STLs/
+python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
 
 # Single STL conversion (simplest workflow)
-python cad_g4_app.py --stl-file mesh.stl
+python cad_g4_conv.py --stl-file mesh.stl
 
 # Custom output file
-python cad_g4_app.py --step-file input.STEP -o output.gdml
+python cad_g4_conv.py --step-file input.STEP -o output.gdml
 
 # Check for overlaps
-python cad_g4_app.py --step-file input.STEP --check-overlaps
+python cad_g4_conv.py --step-file input.STEP --check-overlaps
 
 # Center geometry at world origin
-python cad_g4_app.py --step-file input.STEP --center-origin
+python cad_g4_conv.py --step-file input.STEP --center-origin
 ```
 
 ### Real Examples
 
 ```bash
 # HEPI-SiO2 detector (STEP native)
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP \
     -o HEPI-SiO2.gdml
 
 # Stacked Trays (STL+STEP)
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
     --stl-dir CAD_files/Stacked-Trays/STLs \
     -o Stacked-Trays.gdml
 
 # HEPI-PbF2 with overlap check
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-PbF2/HEPI-PbF2.STEP \
     -o HEPI-PbF2.gdml \
     --check-overlaps
 
 # Stacked Trays centered at origin
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
     --stl-dir CAD_files/Stacked-Trays/STLs \
     --center-origin \
@@ -63,7 +63,7 @@ Need to convert CAD to GDML?
 ├─ Have a single STL file?
 │  │
 │  ├─ YES → Use Single STL mode
-│  │        python cad_g4_app.py --stl-file mesh.stl
+│  │        python cad_g4_conv.py --stl-file mesh.stl
 │  │        ✓ Simplest workflow
 │  │        ✓ Auto-sized world
 │  │        ✓ Fastest conversion
@@ -73,7 +73,7 @@ Need to convert CAD to GDML?
 │           ├─ YES → Have STEP for placements?
 │           │  │
 │           │  ├─ YES → Use STL+STEP mode
-│           │  │        python cad_g4_app.py --step-file X.STEP --stl-dir STLs/
+│           │  │        python cad_g4_conv.py --step-file X.STEP --stl-dir STLs/
 │           │  │        ✓ High mesh quality
 │           │  │        ✓ Auto-sized world
 │           │  │        ✓ Assembly structure
@@ -85,13 +85,13 @@ Need to convert CAD to GDML?
 │                    ├─ Hierarchy mode works?
 │                    │  │
 │                    │  ├─ YES → Use default (hierarchy)
-│                    │  │        python cad_g4_app.py --step-file X.STEP
+│                    │  │        python cad_g4_conv.py --step-file X.STEP
 │                    │  │        ✓ CSG primitives
 │                    │  │        ✓ Maintains structure
 │                    │  │        ✓ Efficient geometry
 │                    │  │
 │                    │  └─ NO → Use flat mode
-│                    │           python cad_g4_app.py --step-file X.STEP --flat
+│                    │           python cad_g4_conv.py --step-file X.STEP --flat
 │                    │           ✓ More robust
 │                    │           ✓ Single solid
 │                    │           ✓ Fewer failures
@@ -148,19 +148,19 @@ World: 114×120×115 mm³
 ### Development Workflow
 ```bash
 # 1. First try: hierarchy mode
-python cad_g4_app.py --step-file input.STEP -o v1.gdml
+python cad_g4_conv.py --step-file input.STEP -o v1.gdml
 
 # 2. Visualize
 python run_vtkviewer.py v1.gdml
 
 # 3. Check overlaps
-python cad_g4_app.py --step-file input.STEP -o v1.gdml --check-overlaps
+python cad_g4_conv.py --step-file input.STEP -o v1.gdml --check-overlaps
 
 # 4. If issues, try flat
-python cad_g4_app.py --step-file input.STEP -o v2_flat.gdml --flat
+python cad_g4_conv.py --step-file input.STEP -o v2_flat.gdml --flat
 
 # 5. Or try STL if available
-python cad_g4_app.py --step-file input.STEP --stl-dir STLs/ -o v3_stl.gdml
+python cad_g4_conv.py --step-file input.STEP --stl-dir STLs/ -o v3_stl.gdml
 ```
 
 ### Batch Processing
@@ -168,14 +168,14 @@ python cad_g4_app.py --step-file input.STEP --stl-dir STLs/ -o v3_stl.gdml
 # Process all STEP files in directory
 for f in CAD_files/*/*.STEP; do
     base=$(basename "$f" .STEP)
-    python cad_g4_app.py --step-file "$f" -o "${base}.gdml"
+    python cad_g4_conv.py --step-file "$f" -o "${base}.gdml"
 done
 ```
 
 ### Validation Pipeline
 ```bash
 # Convert with overlap check
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file input.STEP \
     -o output.gdml \
     --check-overlaps > validation.log 2>&1
@@ -248,5 +248,5 @@ python run_vtkviewer.py input.STEP
 python run_vtkviewer.py mesh.stl
 
 # Help
-python cad_g4_app.py --help
+python cad_g4_conv.py --help
 ```

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Demonstration of all three cad_g4_app.py workflows
+# Demonstration of all three cad_g4_conv.py workflows
 
 echo "========================================================================"
 echo "CAD to GDML Converter - All Workflow Demonstrations"
@@ -12,7 +12,7 @@ echo "WORKFLOW 1: STEP Native Conversion"
 echo "=========================================="
 echo "Converts STEP file directly to GDML, maintaining assembly hierarchy"
 echo
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP \
     -o demo_step_native.gdml | grep -E "(Mode:|Total volumes:|World size:)"
 echo
@@ -25,7 +25,7 @@ echo "WORKFLOW 2: STL+STEP Mesh Conversion"
 echo "=========================================="
 echo "Uses STL meshes with STEP file for placement information"
 echo
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP \
     --stl-dir CAD_files/Stacked-Trays/STLs \
     -o demo_stl_step.gdml | grep -E "(Found.*STL|Total volumes:|World size:)"
@@ -39,7 +39,7 @@ echo "WORKFLOW 3: Single STL Conversion"
 echo "=========================================="
 echo "Converts a single STL file to GDML (quickest method)"
 echo
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --stl-file "CAD_files/Stacked-Trays/STLs/Stacked Trays - Base-1.STL" \
     -o demo_single_stl.gdml | grep -E "(Input:|Total volumes:|World size:)"
 echo

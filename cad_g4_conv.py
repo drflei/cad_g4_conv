@@ -27,22 +27,22 @@ USAGE EXAMPLES:
 ===============
 
     # STEP-to-GDML with hierarchy (CSG where possible)
-    python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
+    python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
     
     # STEP-to-GDML flat mode (single tessellated solid)
-    python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
+    python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP --flat
     
     # STL+STEP-to-GDML (mesh mode)
-    python cad_g4_app.py --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP --stl-dir CAD_files/Stacked-Trays/STLs
+    python cad_g4_conv.py --step-file CAD_files/Stacked-Trays/Stacked-Trays.STEP --stl-dir CAD_files/Stacked-Trays/STLs
     
     # Single STL-to-GDML (simple mesh)
-    python cad_g4_app.py --stl-file mesh.stl
+    python cad_g4_conv.py --stl-file mesh.stl
     
     # Custom output file
-    python cad_g4_app.py --step-file input.STEP -o output.gdml
+    python cad_g4_conv.py --step-file input.STEP -o output.gdml
     
     # Check overlaps
-    python cad_g4_app.py --step-file input.STEP --check-overlaps
+    python cad_g4_conv.py --step-file input.STEP --check-overlaps
 
 FEATURES:
 =========
@@ -1064,19 +1064,19 @@ WORKFLOW MODES:
 
 EXAMPLES:
   # Native STEP conversion with hierarchy
-  python cad_g4_app.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
+  python cad_g4_conv.py --step-file CAD_files/HEPI-SiO2/HEPI-SiO2.STEP
   
   # STEP flat mode (tessellated solid)
-  python cad_g4_app.py --step-file input.STEP --flat
+  python cad_g4_conv.py --step-file input.STEP --flat
   
   # STL+STEP mesh conversion
-  python cad_g4_app.py --step-file assembly.STEP --stl-dir STLs/
+  python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
   
   # Single STL mesh conversion
-  python cad_g4_app.py --stl-file mesh.stl
+  python cad_g4_conv.py --stl-file mesh.stl
   
   # Check overlaps
-  python cad_g4_app.py --step-file input.STEP --check-overlaps
+  python cad_g4_conv.py --step-file input.STEP --check-overlaps
         """
     )
     parser.add_argument(

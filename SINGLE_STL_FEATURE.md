@@ -2,7 +2,7 @@
 
 ## Summary
 
-Added a third workflow to `cad_g4_app.py`: **Single STL-to-GDML** conversion for the simplest possible mesh import.
+Added a third workflow to `cad_g4_conv.py`: **Single STL-to-GDML** conversion for the simplest possible mesh import.
 
 ## Motivation
 
@@ -69,20 +69,20 @@ The tool now automatically detects three workflows:
 ### Basic Usage
 ```bash
 # Convert single STL to GDML
-python cad_g4_app.py --stl-file mesh.stl
+python cad_g4_conv.py --stl-file mesh.stl
 
 # With custom output
-python cad_g4_app.py --stl-file part.stl -o part.gdml
+python cad_g4_conv.py --stl-file part.stl -o part.gdml
 ```
 
 ### Real Examples
 ```bash
 # Base plate
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --stl-file "CAD_files/Stacked-Trays/STLs/Stacked Trays - Base-1.STL"
 
 # Housing component
-python cad_g4_app.py \
+python cad_g4_conv.py \
     --stl-file "CAD_files/HEPI-PbF2/STLs/HEPI-PbF2 - HEPI Housing-1.STL" \
     -o housing.gdml
 ```
@@ -160,19 +160,19 @@ Status: ✓ Success
 ## Code Changes
 
 ### Files Modified
-1. **`cad_g4_app.py`** (main application)
+1. **`cad_g4_conv.py`** (main application)
    - Added `convert_single_stl_to_gdml()` function
    - Updated argument parser (--stl-file, --step-file optional)
    - Enhanced workflow detection in `main()`
    - Updated docstring
 
-2. **`cad_g4_app_README.md`**
+2. **`cad_g4_conv_README.md`**
    - Added Single STL section
    - Updated workflow descriptions
    - Added new usage examples
    - Updated command-line options
 
-3. **`cad_g4_app_QUICKREF.md`**
+3. **`cad_g4_conv_QUICKREF.md`**
    - Added Single STL to decision tree
    - Updated workflow comparison table
    - Added new usage examples
@@ -213,7 +213,7 @@ All existing pyg4ometry features are preserved across all workflows.
 ### Example 1: Quick Mesh Preview
 ```bash
 # Got an STL from a CAD export? View it immediately:
-python cad_g4_app.py --stl-file exported_part.stl
+python cad_g4_conv.py --stl-file exported_part.stl
 python run_vtkviewer.py output.gdml
 ```
 
@@ -221,15 +221,15 @@ python run_vtkviewer.py output.gdml
 ```bash
 # Convert all STLs in a directory (as separate GDML files):
 for stl in *.stl; do
-    python cad_g4_app.py --stl-file "$stl" -o "${stl%.stl}.gdml"
+    python cad_g4_conv.py --stl-file "$stl" -o "${stl%.stl}.gdml"
 done
 ```
 
 ### Example 3: Prototyping
 ```bash
 # Quickly test different mesh resolutions:
-python cad_g4_app.py --stl-file mesh_low.stl -o low.gdml
-python cad_g4_app.py --stl-file mesh_high.stl -o high.gdml
+python cad_g4_conv.py --stl-file mesh_low.stl -o low.gdml
+python cad_g4_conv.py --stl-file mesh_high.stl -o high.gdml
 # Compare in viewer
 ```
 

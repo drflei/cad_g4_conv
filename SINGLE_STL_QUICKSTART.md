@@ -5,7 +5,7 @@ The simplest way to convert an STL mesh to GDML for Geant4.
 ## One-Line Conversion
 
 ```bash
-python cad_g4_app.py --stl-file your_mesh.stl
+python cad_g4_conv.py --stl-file your_mesh.stl
 ```
 
 That's it! Output will be `output.gdml` by default.
@@ -22,7 +22,7 @@ That's it! Output will be `output.gdml` by default.
 
 ```bash
 # Convert
-$ python cad_g4_app.py --stl-file part.stl
+$ python cad_g4_conv.py --stl-file part.stl
 
 ============================================================
 SINGLE STL-TO-GDML CONVERSION (Simple Mesh)
@@ -60,27 +60,27 @@ $ python run_vtkviewer.py output.gdml
 ### 1. Quick Mesh Preview
 ```bash
 # Just exported from CAD? Check it immediately:
-python cad_g4_app.py --stl-file exported.stl
+python cad_g4_conv.py --stl-file exported.stl
 python run_vtkviewer.py output.gdml
 ```
 
 ### 2. Custom Output Name
 ```bash
-python cad_g4_app.py --stl-file detector_base.stl -o base.gdml
+python cad_g4_conv.py --stl-file detector_base.stl -o base.gdml
 ```
 
 ### 3. Batch Processing
 ```bash
 # Convert all STLs in current directory:
 for stl in *.stl; do
-    python cad_g4_app.py --stl-file "$stl" -o "${stl%.stl}.gdml"
+    python cad_g4_conv.py --stl-file "$stl" -o "${stl%.stl}.gdml"
 done
 ```
 
 ### 4. Test Different Resolutions
 ```bash
-python cad_g4_app.py --stl-file mesh_low_res.stl -o low.gdml
-python cad_g4_app.py --stl-file mesh_high_res.stl -o high.gdml
+python cad_g4_conv.py --stl-file mesh_low_res.stl -o low.gdml
+python cad_g4_conv.py --stl-file mesh_high_res.stl -o high.gdml
 # Compare file sizes and quality
 ```
 
@@ -143,7 +143,7 @@ Total volumes: Always 2 (world + mesh)
 ls -lh your_mesh.stl
 
 # Use absolute path:
-python cad_g4_app.py --stl-file /full/path/to/mesh.stl
+python cad_g4_conv.py --stl-file /full/path/to/mesh.stl
 ```
 
 ### Mesh appears offset in viewer
@@ -166,7 +166,7 @@ After successful conversion:
 
 ```bash
 # 1. Convert STL to GDML
-python cad_g4_app.py --stl-file detector_housing.stl -o housing.gdml
+python cad_g4_conv.py --stl-file detector_housing.stl -o housing.gdml
 
 # 2. View in 3D
 python run_vtkviewer.py housing.gdml
@@ -182,7 +182,7 @@ grep -A 5 "<volume name" housing.gdml
 
 - **Multiple parts?** → Use `--step-file X.STEP --stl-dir STLs/`
 - **Assembly structure?** → Use `--step-file X.STEP` (native)
-- **Help?** → Run `python cad_g4_app.py --help`
+- **Help?** → Run `python cad_g4_conv.py --help`
 
 ---
 
