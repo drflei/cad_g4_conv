@@ -651,6 +651,9 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                     if hasattr(trimesh.repair, 'fill_holes'):
                         try:
                             trimesh.repair.fill_holes(tm)
+                            # Try again if still not watertight
+                            if not tm.is_watertight:
+                                trimesh.repair.fill_holes(tm)
                         except Exception as e:
                             notes += f'fill_holes_failed:{e};'
                     try:
@@ -661,8 +664,8 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                     notes += f'repair_exception:{e};'
 
                 wat_after = bool(tm.is_watertight)
-                # If repaired, create a new TessellatedSolid from the repaired mesh
-                if wat_after or True:
+                # Always export the mesh (even if not fully repaired) to avoid losing geometry
+                if True:
                     # Export repaired mesh to a temporary STL and re-import via pyg4ometry.stl.Reader
                     import tempfile
                     try:
@@ -859,9 +862,17 @@ def convert_step_to_gdml(
     logger.info("CHECKING AND REPAIRING TESSELLATED SOLIDS")
     logger.info("%s", "=" * 60)
     reports = _check_and_repair_tessellated_solids(cad_registry, repair=True, replace_in_place=True)
+    failed_repairs = []
     if reports:
         for r in reports:
             logger.info(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if r.get('watertight_before') == False and r.get('watertight_after') == False:
+                failed_repairs.append(r['solid_name'])
+        if failed_repairs:
+            logger.warning("\n⚠️  WARNING: %d solid(s) still have holes after repair attempts:", len(failed_repairs))
+            for name in failed_repairs:
+                logger.warning(f"    - {name}")
+            logger.warning("  These meshes may cause issues in Geant4. Consider manual repair in CAD software.")
     else:
         logger.info('  No tessellated solids found or trimesh not available')
 
@@ -1020,9 +1031,17 @@ def convert_single_stl_to_gdml(
     print("CHECKING AND REPAIRING TESSELLATED SOLIDS")
     print(f"{'='*60}")
     reports = _check_and_repair_tessellated_solids(reg, repair=True, replace_in_place=True)
+    failed_repairs = []
     if reports:
         for r in reports:
             print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if r.get('watertight_before') == False and r.get('watertight_after') == False:
+                failed_repairs.append(r['solid_name'])
+        if failed_repairs:
+            print(f"\n⚠️  WARNING: {len(failed_repairs)} solid(s) still have holes after repair attempts:")
+            for name in failed_repairs:
+                print(f"    - {name}")
+            print("  These meshes may cause issues in Geant4. Consider manual repair in CAD software.")
     else:
         print('  No tessellated solids found or trimesh not available')
 
@@ -1210,9 +1229,17 @@ def convert_stl_to_gdml(
     print("CHECKING AND REPAIRING TESSELLATED SOLIDS")
     print(f"{'='*60}")
     reports = _check_and_repair_tessellated_solids(reg, repair=True, replace_in_place=True)
+    failed_repairs = []
     if reports:
         for r in reports:
             print(f"  {r['solid_name']}: watertight_before={r.get('watertight_before')} watertight_after={r.get('watertight_after')} replaced={r.get('replaced_name')} notes={r.get('notes')}")
+            if r.get('watertight_before') == False and r.get('watertight_after') == False:
+                failed_repairs.append(r['solid_name'])
+        if failed_repairs:
+            print(f"\n⚠️  WARNING: {len(failed_repairs)} solid(s) still have holes after repair attempts:")
+            for name in failed_repairs:
+                print(f"    - {name}")
+            print("  These meshes may cause issues in Geant4. Consider manual repair in CAD software.")
     else:
         print('  No tessellated solids found or trimesh not available')
 
