@@ -6,27 +6,15 @@ All tests verify the **automatic mesh repair** functionality that runs during GD
 
 ### Test Files
 
-#### `test_automatic_repair.py` (formerly `test_precheck.py`)
+#### `test_automatic_repair.py`
 Tests that automatic repair works during conversion:
 - `test_single_stl_automatic_repair` - Verifies broken STL meshes are automatically repaired
 - `test_step_conversion_with_automatic_repair` - Tests STEP file conversion with automatic repair
 - `test_watertight_mesh_after_automatic_repair` - Confirms repaired meshes are watertight
 
-#### `test_no_duplicates.py` (formerly `test_postcheck_fixed_filter.py`)
+#### `test_no_duplicates.py`
 Tests that `replace_in_place=True` correctly removes `_fixed` duplicates:
 - `test_no_fixed_duplicates_in_registry` - Ensures only one copy of each solid exists in registry
-
-#### `test_fixed_filter.py`
-Tests that `_fixed` suffix in STL filenames are handled correctly:
-- `test_fixed_files_excluded_from_stl_dir_processing` - Verifies `*_fixed.stl` files are skipped during batch loading
-
-#### `test_logging.py`
-Tests logging functionality:
-- `test_logging_file_created_and_contains_postcheck` - Verifies repair messages appear in log files
-
-#### `test_repair_report.py`
-Tests repair reporting:
-- `test_repair_report_and_log_created` - Confirms repair process creates expected output files
 
 ## Running Tests
 
@@ -52,15 +40,8 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and 
 4. **Run Tests** - Execute pytest suite
 5. **Smoke Test** - Create broken mesh, convert, verify automatic repair in logs
 
-### Key Changes from Previous Version
-- ❌ Removed `--precheck` and `--repair` flags (repair is now automatic)
-- ✅ Simplified smoke test - just run conversion, repair happens automatically
-- ✅ Verify repair messages in log file instead of checking for repair report CSV
-- ✅ Updated artifact names to reflect automatic repair behavior
+## Automatic Repair
 
-## Important Notes
-
-### Automatic Repair
 **Repair now happens automatically** during all conversions. No flags needed:
 
 ```bash
@@ -68,15 +49,7 @@ The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and 
 python cad_g4_conv.py --stl-file mesh.stl -o output.gdml
 ```
 
-The 9-phase comprehensive repair process runs automatically before GDML export.
-
-### Test Philosophy
-Tests verify:
-1. Broken meshes are automatically repaired ✓
-2. Repaired meshes are watertight ✓
-3. No duplicate `_fixed` solids in output ✓
-4. Repair messages appear in logs ✓
-5. Registry state is correct after repair ✓
+The 10-phase comprehensive repair process (trimesh + optional pymeshlab) runs automatically before GDML export.
 
 ### CI Status
 Check the latest CI run: https://github.com/drflei/cad_g4_conv/actions
