@@ -4,15 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cad-g4-conv"
-version = "1.0.1"
+version = "1.0.2"
 description = "CAD to Geant4 GDML converter with automatic mesh repair"
 readme = "README.md"
 license = "GPL-3.0-or-later"
 authors = [
-    {name = "Fuchun Lei", email = "drflei@gmail.com"}
+    {name = "Fan Lei", email = "drflei@gmail.com"}
 ]
 maintainers = [
-    {name = "Fuchun Lei", email = "drflei@gmail.com"}
+    {name = "Fan Lei", email = "drflei@gmail.com"}
 ]
 keywords = [
     "geant4",
