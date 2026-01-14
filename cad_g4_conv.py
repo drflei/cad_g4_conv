@@ -583,6 +583,12 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
     except Exception:
         print("Warning: trimesh not available; skipping tessellated solids postcheck/repair.")
         return []
+    
+    # Try to import pymeshlab as optional fallback
+    try:
+        import pymeshlab
+    except Exception:
+        pymeshlab = None
 
     reports = []
     # Iterate over a copy of solid items to allow modification
@@ -781,6 +787,54 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                                         notes += 'used_convex_hull(no_vol);'
                             except Exception as e:
                                 notes += f'convex_hull_failed:{e};'
+                    
+                    # Phase 10: Last resort - PyMeshLab for very stubborn meshes
+                    if not tm.is_watertight and pymeshlab is not None:
+                        try:
+                            import tempfile
+                            import os
+                            # Export to temp STL for PyMeshLab
+                            with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as tmpf:
+                                tmp_input = tmpf.name
+                            tm.export(tmp_input)
+                            
+                            # Use PyMeshLab's powerful repair tools
+                            ms = pymeshlab.MeshSet()
+                            ms.load_new_mesh(tmp_input)
+                            
+                            # Apply comprehensive MeshLab repairs
+                            ms.meshing_remove_duplicate_vertices()
+                            ms.meshing_remove_duplicate_faces()
+                            ms.meshing_repair_non_manifold_edges()
+                            ms.meshing_repair_non_manifold_vertices()
+                            ms.meshing_remove_unreferenced_vertices()
+                            ms.meshing_close_holes(maxholesize=200)
+                            ms.meshing_repair_non_manifold_edges()  # Repair again after hole filling
+                            
+                            # Save and reload with trimesh
+                            with tempfile.NamedTemporaryFile(suffix='.stl', delete=False) as tmpf:
+                                tmp_output = tmpf.name
+                            ms.save_current_mesh(tmp_output)
+                            
+                            # Load back into trimesh
+                            tm_fixed = trimesh.load(tmp_output, process=False)
+                            
+                            # Clean up temp files
+                            try:
+                                os.unlink(tmp_input)
+                                os.unlink(tmp_output)
+                            except Exception:
+                                pass
+                            
+                            if tm_fixed.is_watertight:
+                                tm = tm_fixed
+                                notes += 'used_pymeshlab;'
+                            else:
+                                notes += 'pymeshlab_attempted_still_not_watertight;'
+                        except Exception as e:
+                            notes += f'pymeshlab_failed:{e};'
+                    elif not tm.is_watertight and pymeshlab is None:
+                        notes += 'pymeshlab_not_available;'
                     
                 except Exception as e:
                     notes += f'repair_exception:{e};'

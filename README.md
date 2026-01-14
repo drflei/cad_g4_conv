@@ -8,10 +8,12 @@ A collection of tools for converting CAD files (STEP, STL) to GDML for use in Ge
 - pyg4ometry >= 1.0.0
 - vtk >= 9.0.0
 - trimesh (for automatic mesh repair)
+- pymeshlab (optional, for advanced mesh repair of stubborn cases)
 
 Install dependencies:
 ```bash
 pip install -r requirements.txt
+pip install pymeshlab  # Optional but recommended
 ```
 
 ## Overview
@@ -47,7 +49,7 @@ All conversions automatically check and repair tessellated meshes before export.
 
 ### Automatic Mesh Repair
 
-The converter includes a comprehensive 9-phase mesh repair system that automatically fixes common issues:
+The converter includes a comprehensive 10-phase mesh repair system that automatically fixes common issues:
 
 1. **Basic cleanup**: Removes duplicate/unreferenced vertices
 2. **Normal fixing**: Ensures consistent face orientations  
@@ -58,17 +60,24 @@ The converter includes a comprehensive 9-phase mesh repair system that automatic
 7. **Final cleanup**: Merges vertices after all repairs
 8. **Winding correction**: Fixes inconsistent face winding
 9. **Fallback strategies**: Uses convex hull or voxelization for severely broken meshes
+10. **PyMeshLab fallback** (optional): For very stubborn meshes, uses MeshLab's industrial-strength repair algorithms
 
-Most meshes are repaired automatically. For stubborn cases, the converter will:
-- Show clear warnings about which solids couldn't be fully repaired
-- Report which repair techniques were applied
-- Still export the geometry (better than failing completely)
+Most meshes are repaired automatically. The system tries progressively more aggressive techniques:
+- **Phases 1-8** handle 90%+ of issues using trimesh (lightweight, fast)
+- **Phase 9** applies convex hull for small holes or voxelization for complex geometry
+- **Phase 10** uses PyMeshLab's powerful algorithms for the most challenging cases (requires `pip install pymeshlab`)
 
 Example repair output:
 ```
 stl_solid_8: watertight_before=False watertight_after=True 
   notes=removed_92_broken_faces;subdivided;used_convex_hull(vol_diff=0.04);
 ```
+
+**Optional: PyMeshLab for stubborn meshes**
+```bash
+pip install pymeshlab  # Optional but recommended for complex meshes
+```
+If installed, PyMeshLab provides a final fallback using MeshLab's industrial-strength repair algorithms.
 
 For full usage and examples see `cad_g4_conv_QUICKREF.md` and `cad_g4_conv_README.md`.
 ## Files in This Directory
