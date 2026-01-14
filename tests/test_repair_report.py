@@ -37,6 +37,7 @@ def test_repair_report_and_log_created(tmp_path):
     assert out_gdml.exists(), "GDML output missing"
     assert reg is not None
     
-    # Verify that a repaired solid exists (should have _fixed suffix)
-    fixed_solids = [name for name in reg.solidDict.keys() if name.endswith('_fixed')]
-    assert len(fixed_solids) > 0, "Expected at least one _fixed solid from automatic repair"
+    # With replace_in_place=True, repaired solids replace the originals (no _fixed suffix)
+    # Verify that tessellated solids exist and are repaired
+    stl_solids = [name for name in reg.solidDict.keys() if 'stl_solid' in name]
+    assert len(stl_solids) > 0, "Expected at least one stl_solid from conversion"

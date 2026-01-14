@@ -63,13 +63,14 @@ def test_postcheck_and_repair_on_converted_single_stl(tmp_path):
     cube.export(str(stl_file))
     out_gdml = tmp_path / "out_post.gdml"
 
-    # Automatic repair now runs by default
+    # Automatic repair now runs by default with replace_in_place=True
     reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True)
-    # Find a tessellated solid and check that there is a replaced fixed version
+    # With replace_in_place=True, the original solid is replaced (no _fixed suffix)
+    # Check that tessellated solids are watertight after repair
     found_repaired = False
     for sname, solid in reg.solidDict.items():
-        if sname.endswith('-fixed') or sname.endswith('_fixed'):
-            # Inspect mesh
+        if 'stl_solid' in sname:
+            # Inspect mesh to verify it's watertight
             try:
                 m = solid.mesh()
                 vp = m.toVerticesAndPolygons()

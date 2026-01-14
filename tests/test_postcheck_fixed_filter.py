@@ -22,7 +22,7 @@ spec.loader.exec_module(cad_mod)
 
 @pytest.mark.skipif(trimesh is None or pyg4ometry is None, reason="trimesh or pyg4ometry not installed")
 def test_fixed_solids_excluded_from_postcheck(tmp_path):
-    """Test that solids ending with _fixed are not re-processed during automatic repair."""
+    """Test that with replace_in_place=True, no _fixed duplicates exist in the registry."""
     
     # Create a broken cube
     cube = trimesh.creation.box(extents=(10, 10, 10))
@@ -37,11 +37,12 @@ def test_fixed_solids_excluded_from_postcheck(tmp_path):
     out_gdml = tmp_path / "test.gdml"
     reg = cad_mod.convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True)
     
-    # After automatic repair, check that _fixed solid exists and no _fixed_fixed exists
+    # After automatic repair with replace_in_place=True, _fixed solids should NOT exist
+    # (they are cleaned up and replaced with the original name)
     fixed_count = sum(1 for name in reg.solidDict.keys() if name.endswith('_fixed'))
     double_fixed_count = sum(1 for name in reg.solidDict.keys() if name.endswith('_fixed_fixed'))
-    
-    # Should have at least one _fixed solid from the automatic repair
-    assert fixed_count >= 1, f"Expected at least 1 _fixed solid, got {fixed_count}"
+
+    # With replace_in_place=True, no _fixed solids should exist
+    assert fixed_count == 0, f"Expected 0 _fixed solids with replace_in_place=True, got {fixed_count}"
     # Should NOT have any double-fixed solids
     assert double_fixed_count == 0, f"Should not have _fixed_fixed solids, got {double_fixed_count}"

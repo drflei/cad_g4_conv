@@ -799,6 +799,11 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                         new_solid = reader.getSolid()
                         if replace_in_place:
                             # Replace in-place: change the solid name back to original and replace in registry
+                            # First, remove the '_fixed' solid that was just added by the reader
+                            fixed_name = sname + '_fixed'
+                            if fixed_name in reg.solidDict:
+                                del reg.solidDict[fixed_name]
+                            # Now rename and replace the original
                             new_solid.name = sname
                             reg.solidDict[sname] = new_solid
                             replaced_name = sname
@@ -1152,6 +1157,9 @@ def convert_single_stl_to_gdml(
     print(f"\n{'='*60}")
     print("CHECKING AND REPAIRING TESSELLATED SOLIDS")
     print(f"{'='*60}")
+    logger.info("="*60)
+    logger.info("CHECKING AND REPAIRING TESSELLATED SOLIDS")
+    logger.info("="*60)
     reports = _check_and_repair_tessellated_solids(reg, repair=True, replace_in_place=True)
     failed_repairs = []
     if reports:
@@ -1350,6 +1358,9 @@ def convert_stl_to_gdml(
     print(f"\n{'='*60}")
     print("CHECKING AND REPAIRING TESSELLATED SOLIDS")
     print(f"{'='*60}")
+    logger.info("="*60)
+    logger.info("CHECKING AND REPAIRING TESSELLATED SOLIDS")
+    logger.info("="*60)
     reports = _check_and_repair_tessellated_solids(reg, repair=True, replace_in_place=True)
     failed_repairs = []
     if reports:
