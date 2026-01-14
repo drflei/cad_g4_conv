@@ -25,28 +25,18 @@ def test_repair_report_and_log_created(tmp_path):
     cube.export(str(stl_file))
 
     out_gdml = tmp_path / "out_report.gdml"
-    report_csv = tmp_path / "repairs.csv"
-    log_file = tmp_path / "conv.log"
 
-    # Run conversion with precheck+repair and request CSV report + log
+    # Run conversion - automatic repair now runs by default
     reg = convert_single_stl_to_gdml(
         stl_file,
         out_gdml,
         center_origin=True,
-        precheck=True,
-        repair=True,
-        postcheck=False,
-        postrepair=False,
-        replace_in_place=False,
-        repair_report=str(report_csv),
     )
-
-    # Check report CSV written
-    assert report_csv.exists(), "Repair report CSV not created"
-    txt = report_csv.read_text()
-    # Expect header to contain 'stl' and some report keys
-    assert 'stl' in txt or 'solid_name' in txt
 
     # Check GDML output created
     assert out_gdml.exists(), "GDML output missing"
     assert reg is not None
+    
+    # Verify that a repaired solid exists (should have _fixed suffix)
+    fixed_solids = [name for name in reg.solidDict.keys() if name.endswith('_fixed')]
+    assert len(fixed_solids) > 0, "Expected at least one _fixed solid from automatic repair"

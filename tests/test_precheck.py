@@ -33,8 +33,8 @@ def test_convert_single_stl_precheck_and_repair(tmp_path):
 
     out_gdml = tmp_path / "out.gdml"
 
-    # This should attempt repair and still produce a GDML file
-    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True, precheck=True, repair=True)
+    # Conversion now automatically checks and repairs tessellated volumes
+    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True)
 
     assert out_gdml.exists(), "GDML output missing"
     # Registry should be returned
@@ -42,20 +42,20 @@ def test_convert_single_stl_precheck_and_repair(tmp_path):
 
 
 def test_step_precheck_dryrun_ok(tmp_path):
-    # Use a small STEP file from the CLAIRE data (HEPI-SiO2) to test STEP dry-run tessellation
+    # Use a small STEP file from the CLAIRE data (HEPI-SiO2) to test basic conversion with automatic repair
     step_file = Path(__file__).resolve().parents[1] / "../CLAIRE/CAD_files/HEPI-SiO2/HEPI-SiO2.STEP"
     step_file = Path(os.path.normpath(str(step_file)))
     if not step_file.exists():
         pytest.skip("STEP test file not available")
 
     out_gdml = tmp_path / "step_out.gdml"
-    reg = convert_step_to_gdml(step_file, out_gdml, use_hierarchy=True, check_overlaps=False, center_origin=True, precheck=True, repair=False)
+    reg = convert_step_to_gdml(step_file, out_gdml, use_hierarchy=True, check_overlaps=False, center_origin=True)
     assert out_gdml.exists(), "STEP GDML output missing"
     assert reg is not None
 
 
 def test_postcheck_and_repair_on_converted_single_stl(tmp_path):
-    # Create a broken cube and convert without precheck, then run postcheck/postrepair
+    # Create a broken cube - conversion now automatically checks and repairs
     cube = trimesh.creation.box(extents=(10,10,10))
     faces = cube.faces.copy()
     cube.faces = faces[:-1]
@@ -63,7 +63,8 @@ def test_postcheck_and_repair_on_converted_single_stl(tmp_path):
     cube.export(str(stl_file))
     out_gdml = tmp_path / "out_post.gdml"
 
-    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True, precheck=False, repair=False, postcheck=True, postrepair=True)
+    # Automatic repair now runs by default
+    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True)
     # Find a tessellated solid and check that there is a replaced fixed version
     found_repaired = False
     for sname, solid in reg.solidDict.items():

@@ -23,23 +23,14 @@ python cad_g4_conv.py --step-file input.STEP -o output.gdml
 # Check for overlaps
 python cad_g4_conv.py --step-file input.STEP --check-overlaps
 
-# Pre-check & Repair (new)
-# Run pre-checks on STLs/STEP and optionally attempt automatic STL repairs before conversion
-python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/ --precheck --repair -o fixed.gdml
-
-# STEP-only precheck (dry-run tessellation test; use --repair to try local STEP repairs)
-python cad_g4_conv.py --step-file input.STEP --precheck --repair
-
-# Write detailed logs and a CSV repair report
-python cad_g4_conv.py --stl-file mesh.stl --precheck --repair --repair-report repairs.csv --log-file convert.log --log-level DEBUG
-
-# Use --replace-in-place to overwrite originals (keeps .bak backups)
-# Otherwise, repaired files are saved as *-fixed.stl (automatically excluded from --stl-dir processing)
-python cad_g4_conv.py --stl-dir STLs/ --precheck --repair --replace-in-place
-
 # Center geometry at world origin
 python cad_g4_conv.py --step-file input.STEP --center-origin
+
+# Write detailed logs
+python cad_g4_conv.py --stl-file mesh.stl --log-file convert.log --log-level DEBUG
 ```
+
+Note: All conversions automatically check and repair tessellated meshes before export.
 
 ### Real Examples
 

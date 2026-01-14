@@ -19,7 +19,7 @@ except Exception:
 
 @pytest.mark.skipif(trimesh is None, reason="trimesh not installed")
 def test_logging_file_created_and_contains_postcheck(tmp_path):
-    # Create a broken cube and run single-STL conversion with postcheck/postrepair and a log file
+    # Create a broken cube - automatic repair will run
     cube = trimesh.creation.box(extents=(10, 10, 10))
     faces = cube.faces.copy()
     cube.faces = faces[:-1]
@@ -32,10 +32,10 @@ def test_logging_file_created_and_contains_postcheck(tmp_path):
     # Configure logger via CLI-like call
     mod.configure_logging(str(log_file), level="DEBUG")
 
-    # Run conversion with postcheck/postrepair
-    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True, precheck=False, repair=False, postcheck=True, postrepair=True)
+    # Run conversion - automatic check and repair runs by default
+    reg = convert_single_stl_to_gdml(stl_file, out_gdml, center_origin=True)
 
     assert Path(log_file).exists(), "Log file not created"
     txt = Path(log_file).read_text()
-    # Accept if postcheck summary or repaired solid names appear in log
-    assert "POST-CONVERSION TESSELLATED SOLID CHECK" in txt or "_fixed" in txt or "tessellated" in txt.lower()
+    # Check for automatic repair messages
+    assert "CHECKING AND REPAIRING TESSELLATED SOLIDS" in txt or "_fixed" in txt or "tessellated" in txt.lower()

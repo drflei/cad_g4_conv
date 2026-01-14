@@ -7,6 +7,7 @@ A collection of tools for converting CAD files (STEP, STL) to GDML for use in Ge
 - Python 3.10 or above
 - pyg4ometry >= 1.0.0
 - vtk >= 9.0.0
+- trimesh (for automatic mesh repair)
 
 Install dependencies:
 ```bash
@@ -18,9 +19,8 @@ pip install -r requirements.txt
 Converting CAD to GDML/Geant4 requires care; a few export best-practices greatly improve results (trim small parts, preserve named components and hierarchy, avoid intended overlaps).
 
 What's new (concise):
-- Added pre-conversion checks and repairs for source meshes (`--precheck`, `--repair`).
-- Added post-conversion tessellated-solid checks and repairs (`--postcheck`, `--postrepair`) so the same repair actions can be applied after STEP tessellation or STL import.
-- CI added (pytest + Black + Flake8) to keep quality steady.
+- Automatic mesh check and repair on all tessellated volumes before GDML export
+- CI added (pytest + Black + Flake8) to keep quality steady
 
 For full implementation details and reasoning, see [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
@@ -28,7 +28,7 @@ Note: GDML output typically lacks detailed material assignments. Post-process th
 
 ## Main Application: `cad_g4_conv.py`
 
-Unified converter supporting three workflows. Recent additions include pre- and post-conversion mesh checks/repairs.
+Unified converter supporting three workflows. All conversions automatically check and repair tessellated meshes before saving to GDML.
 
 ### Quick Start
 
@@ -43,12 +43,7 @@ python cad_g4_conv.py --step-file assembly.STEP --stl-dir STLs/
 python cad_g4_conv.py --stl-file mesh.stl
 ```
 
-### Useful validation flags
-
-- `--precheck`  : run pre-conversion checks on source meshes (STL or STEP dry-run tessellation)
-- `--repair`    : when used with `--precheck`, attempt automatic repairs on STLs
-- `--postcheck` : check tessellated solids created by conversion (after STEP tessellation or STL import)
-- `--postrepair`: when used with `--postcheck`, attempt automatic repairs on tessellated solids
+All conversions automatically check and repair tessellated meshes before export.
 
 For full usage and examples see `cad_g4_conv_QUICKREF.md` and `cad_g4_conv_README.md`.
 ## Files in This Directory
@@ -113,14 +108,14 @@ python cad_g4_conv.py --step-file complex.STEP --flat
 # 6. Center geometry at world origin
 python cad_g4_conv.py --step-file detector.STEP --center-origin
 
-# 7. Logging and repair report example ✅
-# Write detailed logs to 'convert.log' and attempt in-place repairs, writing a CSV report
-python cad_g4_conv.py --stl-file mesh.stl --precheck --repair --replace-in-place --repair-report repairs.csv --log-file convert.log --log-level DEBUG
+# 7. Logging example
+# Write detailed logs to 'convert.log'
+python cad_g4_conv.py --stl-file mesh.stl --log-file convert.log --log-level DEBUG
 
 # Notes:
-# - `--replace-in-place` overwrites repaired STLs (a .bak file is kept as backup).
-# - `--repair-report` writes a CSV summary of pre/post repair status for auditing.
-# - `--log-file` / `--log-level` control logging output for debugging and reproducibility.
+# - All tessellated meshes are automatically checked and repaired before export
+# - Repairs use trimesh (fix_normals, merge_vertices, remove degenerates, fill_holes, fix_inversion)
+# - `--log-file` / `--log-level` control logging output for debugging and reproducibility
 ```
 
 ## Running from Other Directories
@@ -177,7 +172,7 @@ python cad_g4_conv.py --help
 ## Features (short)
 
 - Supports STEP-native conversion (hierarchy + CSG where possible), STL+STEP mesh-based conversion, and single-STL conversions.
-- Pre/post conversion checks & best-effort automated repairs for STL and tessellated solids.
+- Automatic mesh check and repair on all tessellated volumes before GDML export (trimesh-based).
 - Auto-sized and centered world volume, fuzzy name matching for STL→STEP associations, and overlap diagnostics.
 
 For full technical details, see `cad_g4_conv_README.md` and `IMPLEMENTATION.md`.
