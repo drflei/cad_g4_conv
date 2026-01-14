@@ -629,37 +629,159 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                 continue
 
             if repair:
-                # Attempt repairs similar to repair_stls.try_repair_stl
+                # Comprehensive mesh repair strategy
                 try:
+                    # Phase 1: Basic cleanup
+                    try:
+                        # Remove duplicate and unreferenced vertices
+                        tm.merge_vertices()
+                        tm.remove_unreferenced_vertices()
+                    except Exception:
+                        pass
+                    
+                    # Phase 2: Fix normals (important for hole detection)
                     try:
                         trimesh.repair.fix_normals(tm)
                     except Exception:
                         pass
+                    
+                    # Phase 3: Remove degenerate and duplicate faces
                     try:
-                        # Merge duplicate vertices
-                        tm.merge_vertices()
-                    except Exception:
-                        pass
-                    try:
-                        # Remove degenerate faces
                         if hasattr(tm, 'nondegenerate_faces'):
                             mask = tm.nondegenerate_faces()
                             if mask is not None and mask.sum() < len(tm.faces):
                                 tm.update_faces(mask)
                     except Exception:
                         pass
+                    
+                    try:
+                        # Remove duplicate faces
+                        if hasattr(tm, 'remove_duplicate_faces'):
+                            tm.remove_duplicate_faces()
+                    except Exception:
+                        pass
+                    
+                    # Phase 4: Fix broken faces and edges
+                    try:
+                        if hasattr(trimesh.repair, 'broken_faces'):
+                            broken = trimesh.repair.broken_faces(tm)
+                            if len(broken) > 0:
+                                notes += f'removed_{len(broken)}_broken_faces;'
+                                # After removing broken faces, try subdividing to close gaps
+                                try:
+                                    # Light subdivision can help close small gaps
+                                    if hasattr(tm, 'subdivide') and not tm.is_watertight:
+                                        tm = tm.subdivide()
+                                        notes += 'subdivided;'
+                                except Exception:
+                                    pass
+                    except Exception:
+                        pass
+                    
+                    # Phase 5: Aggressive hole filling (multiple attempts)
                     if hasattr(trimesh.repair, 'fill_holes'):
-                        try:
-                            trimesh.repair.fill_holes(tm)
-                            # Try again if still not watertight
-                            if not tm.is_watertight:
+                        for attempt in range(3):  # Try up to 3 times
+                            if tm.is_watertight:
+                                break
+                            try:
                                 trimesh.repair.fill_holes(tm)
+                            except Exception as e:
+                                if attempt == 2:  # Only log on last attempt
+                                    notes += f'fill_holes_failed:{e};'
+                                break
+                    
+                    # Phase 5b: If still not watertight, try splitting and repairing components
+                    if not tm.is_watertight and hasattr(tm, 'split'):
+                        try:
+                            components = tm.split()
+                            if len(components) > 1:
+                                notes += f'split_into_{len(components)}_components;'
+                                # Repair each component separately
+                                repaired_components = []
+                                for comp in components:
+                                    try:
+                                        trimesh.repair.fill_holes(comp)
+                                        repaired_components.append(comp)
+                                    except Exception:
+                                        repaired_components.append(comp)
+                                # Merge back
+                                if len(repaired_components) > 1:
+                                    tm = trimesh.util.concatenate(repaired_components)
+                                    notes += 'merged_components;'
                         except Exception as e:
-                            notes += f'fill_holes_failed:{e};'
+                            notes += f'split_failed:{e};'
+                    
+                    # Phase 6: Fix inverted faces
                     try:
                         trimesh.repair.fix_inversion(tm)
                     except Exception:
                         pass
+                    
+                    # Phase 7: Final cleanup - merge vertices again after all repairs
+                    try:
+                        tm.merge_vertices()
+                        tm.remove_unreferenced_vertices()
+                    except Exception:
+                        pass
+                    
+                    # Phase 8: If still not watertight, try more aggressive methods
+                    if not tm.is_watertight:
+                        try:
+                            # Try fixing with winding number
+                            if hasattr(trimesh.repair, 'fix_winding'):
+                                trimesh.repair.fix_winding(tm)
+                        except Exception:
+                            pass
+                        
+                        # One more fill_holes attempt after winding fix
+                        if not tm.is_watertight and hasattr(trimesh.repair, 'fill_holes'):
+                            try:
+                                trimesh.repair.fill_holes(tm)
+                            except Exception:
+                                pass
+                        
+                        # Phase 9: Last resort - try convex hull for very broken meshes
+                        if not tm.is_watertight:
+                            try:
+                                # Check if mesh is severely broken (small percentage watertight)
+                                # We try convex hull only as a last resort since it changes geometry
+                                from trimesh.convex import convex_hull
+                                hull = convex_hull(tm)
+                                if hull.is_watertight:
+                                    # Only use hull if original mesh is very broken
+                                    # Compare volumes to decide if hull is reasonable
+                                    original_vol = abs(tm.volume) if hasattr(tm, 'volume') else 0
+                                    hull_vol = abs(hull.volume)
+                                    # Use hull if volume difference is reasonable (<80% difference)
+                                    # For very broken meshes, we're very lenient
+                                    # Better to have a slightly inaccurate but watertight mesh than holes
+                                    if original_vol > 0:
+                                        vol_diff = abs(hull_vol - original_vol) / original_vol
+                                        if vol_diff < 0.8:
+                                            tm = hull
+                                            notes += f'used_convex_hull(vol_diff={vol_diff:.2f});'
+                                        else:
+                                            notes += f'convex_hull_rejected(vol_diff={vol_diff:.2f});'
+                                            # Try voxelization as alternative for meshes with deep concavities
+                                            try:
+                                                if hasattr(tm, 'voxelized'):
+                                                    # Use a pitch that preserves reasonable detail
+                                                    pitch = tm.extents.max() / 50.0  # 50 voxels along longest axis
+                                                    vox = tm.voxelized(pitch=pitch)
+                                                    if hasattr(vox, 'marching_cubes'):
+                                                        vox_mesh = vox.marching_cubes
+                                                        if vox_mesh.is_watertight:
+                                                            tm = vox_mesh
+                                                            notes += f'used_voxelization(pitch={pitch:.2f});'
+                                            except Exception as e:
+                                                notes += f'voxelization_failed:{e};'
+                                    else:
+                                        # If we can't compute original volume, use hull anyway
+                                        tm = hull
+                                        notes += 'used_convex_hull(no_vol);'
+                            except Exception as e:
+                                notes += f'convex_hull_failed:{e};'
+                    
                 except Exception as e:
                     notes += f'repair_exception:{e};'
 

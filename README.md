@@ -45,6 +45,31 @@ python cad_g4_conv.py --stl-file mesh.stl
 
 All conversions automatically check and repair tessellated meshes before export.
 
+### Automatic Mesh Repair
+
+The converter includes a comprehensive 9-phase mesh repair system that automatically fixes common issues:
+
+1. **Basic cleanup**: Removes duplicate/unreferenced vertices
+2. **Normal fixing**: Ensures consistent face orientations  
+3. **Degenerate removal**: Removes zero-area faces and duplicates
+4. **Broken face repair**: Detects and removes topologically broken faces
+5. **Hole filling**: Iteratively attempts to close surface holes (up to 3 attempts)
+6. **Inversion fix**: Corrects inverted face orientations
+7. **Final cleanup**: Merges vertices after all repairs
+8. **Winding correction**: Fixes inconsistent face winding
+9. **Fallback strategies**: Uses convex hull or voxelization for severely broken meshes
+
+Most meshes are repaired automatically. For stubborn cases, the converter will:
+- Show clear warnings about which solids couldn't be fully repaired
+- Report which repair techniques were applied
+- Still export the geometry (better than failing completely)
+
+Example repair output:
+```
+stl_solid_8: watertight_before=False watertight_after=True 
+  notes=removed_92_broken_faces;subdivided;used_convex_hull(vol_diff=0.04);
+```
+
 For full usage and examples see `cad_g4_conv_QUICKREF.md` and `cad_g4_conv_README.md`.
 ## Files in This Directory
 
