@@ -191,10 +191,56 @@ cd ~/cad_g4_conv
 
 ## Visualization
 
-After conversion, visualize the GDML with the viewer from the CLAIRE directory:
+After conversion, visualize the GDML with the built-in VTK viewer:
 
 ```bash
-python ~/CLAIRE/run_vtkviewer.py output.gdml
+python run_vtkviewer.py output.gdml
+
+# Or use the viewer from gdml_editor package
+python -m gdml_editor.run_vtkviewer output.gdml
+```
+
+The viewer supports:
+- GDML files (Geant4 geometry)
+- STL files (triangular meshes)
+- STEP files (CAD assemblies)
+- FLUKA input files (.inp)
+
+See `run_vtkviewer.py --help` for all options.
+
+## Overlap Checking
+
+Check for geometry overlaps using Geant4's built-in overlap checker:
+
+```bash
+python check_overlaps.py output.gdml
+
+# With custom parameters
+python check_overlaps.py output.gdml 2000 0.01 20.0
+```
+
+**Arguments:**
+- `gdml_file` - Path to GDML geometry file
+- `resolution` - Number of points to check (default: 1000)
+- `tolerance` - Tolerance in mm (default: 0.001)
+- `world_size_m` - World half-size in meters (default: 10.0)
+
+**Requirements:**
+```bash
+pip install geant4_pybind
+```
+
+The tool loads the geometry into Geant4 and runs `CheckOverlaps()` on all volumes, reporting:
+- Overlapping volume pairs
+- Surface defects/holes in tessellated solids
+- Detailed overlap locations and partners
+
+**Example output:**
+```
+⚠️  FOUND 2 UNIQUE OVERLAPPING PAIR(S):
+
+   1. sensor_1 === housing
+   2. pcb_volume === sensor_2
 ```
 
 ## Help
