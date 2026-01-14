@@ -610,11 +610,16 @@ def _check_and_repair_stl_files(stl_paths, repair=False, replace_in_place=False)
             except Exception:
                 pass
             try:
-                mesh.remove_duplicate_faces()
+                # Merge duplicate vertices (trimesh handles this internally during processing)
+                mesh.merge_vertices()
             except Exception:
                 pass
             try:
-                mesh.remove_degenerate_faces()
+                # Remove degenerate faces by updating with only nondegenerate ones
+                if hasattr(mesh, 'nondegenerate_faces'):
+                    mask = mesh.nondegenerate_faces()
+                    if mask is not None and mask.sum() < len(mesh.faces):
+                        mesh.update_faces(mask)
             except Exception:
                 pass
             if hasattr(trimesh.repair, 'fill_holes'):
@@ -726,11 +731,16 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                     except Exception:
                         pass
                     try:
-                        tm.remove_duplicate_faces()
+                        # Merge duplicate vertices
+                        tm.merge_vertices()
                     except Exception:
                         pass
                     try:
-                        tm.remove_degenerate_faces()
+                        # Remove degenerate faces
+                        if hasattr(tm, 'nondegenerate_faces'):
+                            mask = tm.nondegenerate_faces()
+                            if mask is not None and mask.sum() < len(tm.faces):
+                                tm.update_faces(mask)
                     except Exception:
                         pass
                     if hasattr(trimesh.repair, 'fill_holes'):
