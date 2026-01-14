@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cad-g4-conv"
-version = "1.0.0"
+version = "1.0.1"
 description = "CAD to Geant4 GDML converter with automatic mesh repair"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -30,7 +30,6 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
