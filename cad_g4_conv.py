@@ -672,13 +672,19 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
                         # Read back using pyg4ometry's STL reader which produces a compatible TessellatedSolid
                         reader = pyg4ometry.stl.Reader(filename=str(out_tmp), solidname=sname + '_fixed', scale=1, centre=False, registry=reg)
                         new_solid = reader.getSolid()
-                        replaced_name = new_solid.name
                         if replace_in_place:
-                            # Replace the existing registry entry
+                            # Replace in-place: change the solid name back to original and replace in registry
+                            new_solid.name = sname
                             reg.solidDict[sname] = new_solid
                             replaced_name = sname
+                            # Update logical volumes to point to the replaced solid
+                            for lv_name, lv in list(reg.logicalVolumeDict.items()):
+                                if hasattr(lv, 'solid') and getattr(lv.solid, 'name', None) == sname:
+                                    lv.solid = new_solid
                         else:
-                            # Add new solid to registry (already added by reader) and update volumes
+                            # Add new solid with _fixed suffix (already added by reader)
+                            replaced_name = new_solid.name
+                            # Update logical volumes to point to the new _fixed solid
                             for lv_name, lv in list(reg.logicalVolumeDict.items()):
                                 if hasattr(lv, 'solid') and getattr(lv.solid, 'name', None) == sname:
                                     lv.solid = new_solid
