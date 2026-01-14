@@ -206,17 +206,17 @@ python cad_g4_conv.py --help
 ## Features (short)
 
 - Supports STEP-native conversion (hierarchy + CSG where possible), STL+STEP mesh-based conversion, and single-STL conversions.
-- Automatic mesh check and repair on all tessellated volumes before GDML export (trimesh-based).
+- Automatic 10-phase mesh check and repair on all tessellated volumes before GDML export (trimesh + optional pymeshlab).
 - Auto-sized and centered world volume, fuzzy name matching for STL→STEP associations, and overlap diagnostics.
 
-For full technical details, see `cad_g4_conv_README.md` and `IMPLEMENTATION.md`.
+## Documentation
 
-## Support
-
-For detailed usage, see:
-- [cad_g4_conv_README.md](cad_g4_conv_README.md) - Complete guide
-- [cad_g4_conv_QUICKREF.md](cad_g4_conv_QUICKREF.md) - Quick reference
-- [SINGLE_STL_QUICKSTART.md](SINGLE_STL_QUICKSTART.md) - Single STL guide
+For detailed usage, see the [docs/](docs/) folder:
+- [docs/QUICKREF.md](docs/QUICKREF.md) - Quick reference
+- [docs/DETAILED_USAGE.md](docs/DETAILED_USAGE.md) - Complete guide
+- [docs/SINGLE_STL_QUICKSTART.md](docs/SINGLE_STL_QUICKSTART.md) - Single STL guide
+- [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) - Technical implementation details
+- [docs/TESTING.md](docs/TESTING.md) - Test suite documentation
 
 ## License
 

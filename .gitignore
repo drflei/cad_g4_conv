@@ -1,1 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Unit test / coverage reports
+htmlcov/
+.coverage
+.coverage.*
+.pytest_cache/
+
+# IDE settings
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Project-specific
 *.gdml
+*.stl
+*.STL
+*.step
+*.STEP
+output/
+tmp_ci/
+repairs.csv
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Mac OS
+.DS_Store
