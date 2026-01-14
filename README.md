@@ -23,8 +23,7 @@ Converting CAD to GDML/Geant4 requires care; a few export best-practices greatly
 What's new (concise):
 - Automatic mesh check and repair on all tessellated volumes before GDML export
 - CI added (pytest + Black + Flake8) to keep quality steady
-
-For full implementation details and reasoning, see [IMPLEMENTATION.md](IMPLEMENTATION.md).
+- Geometry overlap checking with Geant4 via check_overlaps.py
 
 Note: GDML output typically lacks detailed material assignments. Post-process the GDML with `gdml-editor` to add or correct materials: https://github.com/drflei/gdml-editor
 
@@ -79,20 +78,18 @@ pip install pymeshlab  # Optional but recommended for complex meshes
 ```
 If installed, PyMeshLab provides a final fallback using MeshLab's industrial-strength repair algorithms.
 
-For full usage and examples see `cad_g4_conv_QUICKREF.md` and `cad_g4_conv_README.md`.
 ## Files in This Directory
 
 ### Main Tools
-- **cad_g4_conv.py** - Unified CAD to GDML converter (recommended)
-- **step_g4_app.py** - Original STEP-only converter (legacy)
-- **stl_g4_app.py** - Original STL+STEP converter (legacy)
+- **cad_g4_conv.py** - Unified CAD to GDML converter
+- **run_vtkviewer.py** - VTK-based geometry viewer for GDML/STL/STEP files
+- **check_overlaps.py** - Geant4 geometry overlap checker
 
 ### Documentation
-- **cad_g4_conv_README.md** - Complete user guide
-- **cad_g4_conv_QUICKREF.md** - Quick reference and cheatsheet
-- **SINGLE_STL_QUICKSTART.md** - Quick start for single STL workflow
-- **MERGER_SUMMARY.md** - Technical details of the unified app
-- **SINGLE_STL_FEATURE.md** - Single STL feature documentation
+- **README.md** - This file, main project documentation
+- **docs/QUICKREF.md** - Quick reference and cheatsheet
+- **docs/DETAILED_USAGE.md** - Complete usage guide
+- **docs/TESTING.md** - Test suite documentation
 
 ### Scripts
 - **demo_all_workflows.sh** - Demonstrates all three workflows
@@ -100,15 +97,31 @@ For full usage and examples see `cad_g4_conv_QUICKREF.md` and `cad_g4_conv_READM
 
 ## Installation
 
-The tools require pyg4ometry and VTK:
+### From PyPI (Recommended)
 
 ```bash
-pip install pyg4ometry vtk
+pip install cad-g4-conv
 ```
+
+### From Source
+
+```bash
+git clone https://github.com/drflei/cad_g4_conv.git
+cd cad_g4_conv
+pip install -e .
+```
+
+### Requirements
+
+- Python 3.10+
+- pyg4ometry >= 1.0.0
+- VTK >= 9.0.0
+- trimesh
+- geant4_pybind (for overlap checking)
 
 ## Usage
 
-See [cad_g4_conv_README.md](cad_g4_conv_README.md) for complete documentation.
+See [docs/DETAILED_USAGE.md](docs/DETAILED_USAGE.md) for complete documentation.
 
 ### Three Workflows
 
@@ -258,11 +271,9 @@ python cad_g4_conv.py --help
 ## Documentation
 
 For detailed usage, see the [docs/](docs/) folder:
-- [docs/QUICKREF.md](docs/QUICKREF.md) - Quick reference
-- [docs/DETAILED_USAGE.md](docs/DETAILED_USAGE.md) - Complete guide
-- [docs/SINGLE_STL_QUICKSTART.md](docs/SINGLE_STL_QUICKSTART.md) - Single STL guide
-- [docs/IMPLEMENTATION.md](docs/IMPLEMENTATION.md) - Technical implementation details
-- [docs/TESTING.md](docs/TESTING.md) - Test suite documentation
+- [docs/QUICKREF.md](docs/QUICKREF.md) - Quick reference and command cheatsheet
+- [docs/DETAILED_USAGE.md](docs/DETAILED_USAGE.md) - Complete usage guide with examples
+- [docs/TESTING.md](docs/TESTING.md) - Test suite and CI/CD documentation
 
 ## License
 

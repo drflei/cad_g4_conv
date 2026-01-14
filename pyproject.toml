@@ -1,0 +1,88 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cad-g4-conv"
+version = "1.0.0"
+description = "CAD to Geant4 GDML converter with automatic mesh repair"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+authors = [
+    {name = "Fuchun Lei", email = "drflei@gmail.com"}
+]
+maintainers = [
+    {name = "Fuchun Lei", email = "drflei@gmail.com"}
+]
+keywords = [
+    "geant4",
+    "gdml",
+    "cad",
+    "step",
+    "stl",
+    "pyg4ometry",
+    "geometry",
+    "converter",
+    "particle-physics",
+    "detector",
+    "simulation"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "pyg4ometry>=1.0.0",
+    "vtk>=9.0.0",
+    "trimesh",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "flake8>=5.0",
+]
+overlap = [
+    "geant4_pybind",
+]
+meshlab = [
+    "pymeshlab",
+]
+
+[project.urls]
+Homepage = "https://github.com/drflei/cad_g4_conv"
+Documentation = "https://github.com/drflei/cad_g4_conv/tree/main/docs"
+Repository = "https://github.com/drflei/cad_g4_conv"
+Issues = "https://github.com/drflei/cad_g4_conv/issues"
+
+[project.scripts]
+cad-g4-conv = "cad_g4_conv:main"
+run-vtkviewer = "run_vtkviewer:main"
+check-overlaps = "check_overlaps:main"
+
+[tool.setuptools]
+py-modules = ["cad_g4_conv", "run_vtkviewer", "check_overlaps"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cad_g4_conv*", "run_vtkviewer*", "check_overlaps*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
