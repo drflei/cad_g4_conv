@@ -687,6 +687,9 @@ def _check_and_repair_tessellated_solids(reg, repair=False, replace_in_place=Fal
     solids_items = list(reg.solidDict.items())
     for sname, solid in solids_items:
         try:
+            # Skip already-repaired solids (those ending with _fixed) to avoid re-processing
+            if sname.endswith('_fixed'):
+                continue
             if not (hasattr(solid, 'type') and solid.type == 'TessellatedSolid'):
                 continue
             notes = ''
