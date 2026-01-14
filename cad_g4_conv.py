@@ -1267,10 +1267,10 @@ def convert_stl_to_gdml(
     # Print STEP structure
     _print_step_tree(step_file)
     
-    # Find STL files
+    # Find STL files (exclude -fixed.stl files to avoid processing repaired duplicates)
     stl_paths = sorted(
-        [Path(p) for p in glob.glob(str(stl_dir / "*.stl"))]
-        + [Path(p) for p in glob.glob(str(stl_dir / "*.STL"))]
+        [Path(p) for p in glob.glob(str(stl_dir / "*.stl")) if not p.endswith('-fixed.stl')]
+        + [Path(p) for p in glob.glob(str(stl_dir / "*.STL")) if not p.endswith('-fixed.STL')]
     )
 
     all_reports = []  # accumulate pre/post repair reports for optional CSV output
