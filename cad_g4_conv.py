@@ -943,6 +943,12 @@ def convert_step_to_gdml(
             center = [(min_v[i] + max_v[i]) / 2.0 for i in range(3)]
             offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
             
+            # Apply centering offset to bounding box for correct world sizing
+            if center_origin:
+                for i in range(3):
+                    min_v[i] += offset[i]
+                    max_v[i] += offset[i]
+            
             for i in range(3):
                 extra = size[i] * margin
                 min_v[i] -= extra
@@ -1005,6 +1011,15 @@ def convert_step_to_gdml(
         size = [max_v[i] - min_v[i] for i in range(3)]
         center = [(min_v[i] + max_v[i]) / 2.0 for i in range(3)]
         
+        # Offset to center geometry
+        offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
+        
+        # Apply centering offset to bounding box for correct world sizing
+        if center_origin:
+            for i in range(3):
+                min_v[i] += offset[i]
+                max_v[i] += offset[i]
+        
         for i in range(3):
             extra = size[i] * margin
             min_v[i] -= extra
@@ -1022,9 +1037,6 @@ def convert_step_to_gdml(
             lunit="mm"
         )
         world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv_flat", reg)
-        
-        # Offset to center geometry
-        offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
         
         print(f"  Bounding box: [{min_v[0]:.1f}, {min_v[1]:.1f}, {min_v[2]:.1f}] to [{max_v[0]:.1f}, {max_v[1]:.1f}, {max_v[2]:.1f}]")
         print(f"  World size: [{size[0]:.1f}, {size[1]:.1f}, {size[2]:.1f}] mm")
@@ -1164,6 +1176,15 @@ def convert_single_stl_to_gdml(
     size = [max_v[i] - min_v[i] for i in range(3)]
     center = [(min_v[i] + max_v[i]) / 2.0 for i in range(3)]
     
+    # Offset to center geometry
+    offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
+    
+    # Apply centering offset to bounding box for correct world sizing
+    if center_origin:
+        for i in range(3):
+            min_v[i] += offset[i]
+            max_v[i] += offset[i]
+    
     for i in range(3):
         extra = size[i] * margin
         min_v[i] -= extra
@@ -1180,9 +1201,6 @@ def convert_single_stl_to_gdml(
         lunit="mm"
     )
     world_lv = pyg4ometry.geant4.LogicalVolume(world_solid, world_material, "world_lv", reg)
-    
-    # Offset to center geometry
-    offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
     
     print(f"\nGeometry information:")
     print(f"  Bounding box: [{min_v[0]:.1f}, {min_v[1]:.1f}, {min_v[2]:.1f}] to [{max_v[0]:.1f}, {max_v[1]:.1f}, {max_v[2]:.1f}]")
@@ -1372,6 +1390,12 @@ def convert_stl_to_gdml(
     # Calculate size and apply centering offset
     size = [global_max[i] - global_min[i] for i in range(3)]
     offset = [-center[0], -center[1], -center[2]] if center_origin else [0, 0, 0]
+    
+    # Apply centering offset to bounding box for correct world sizing
+    if center_origin:
+        for i in range(3):
+            global_min[i] += offset[i]
+            global_max[i] += offset[i]
     
     # Add 10% margin
     margin = 0.1
