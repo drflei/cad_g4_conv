@@ -1,4 +1,4 @@
-"""Test that _fixed solids are excluded from postcheck/postrepair processing."""
+"""Test that replace_in_place correctly removes _fixed duplicates from registry."""
 import tempfile
 from pathlib import Path
 import pytest
@@ -21,7 +21,7 @@ spec.loader.exec_module(cad_mod)
 
 
 @pytest.mark.skipif(trimesh is None or pyg4ometry is None, reason="trimesh or pyg4ometry not installed")
-def test_fixed_solids_excluded_from_postcheck(tmp_path):
+def test_no_fixed_duplicates_in_registry(tmp_path):
     """Test that with replace_in_place=True, no _fixed duplicates exist in the registry."""
     
     # Create a broken cube

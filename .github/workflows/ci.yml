@@ -69,7 +69,7 @@ jobs:
         run: |
           if [ -f pip-install.log ]; then echo "--- pip-install.log (first 200 lines) ---" && head -n 200 pip-install.log; else echo "pip-install.log not found"; fi
 
-      - name: "Smoke test: repair-report and logs"
+      - name: "Smoke test: automatic repair"
         run: |
           if [ -d "cad_g4_conv" ]; then cd cad_g4_conv; fi
           # Prepare mesh, but skip if required packages aren't available
@@ -89,23 +89,29 @@ jobs:
           p.mkdir(parents=True, exist_ok=True)
           cube = trimesh.creation.box(extents=(10,10,10))
           faces = cube.faces.copy()
-          cube.faces = faces[:-1]
+          cube.faces = faces[:-1]  # Make non-watertight
           stl = p / 'broken_ci.stl'
           cube.export(str(stl))
-          print('Wrote', stl)
+          print('Wrote broken mesh:', stl)
           PY
           if [ -f tests/tmp_ci/skip ]; then echo "Smoke test skipped: packages missing"; exit 0; fi
 
-          # Run conversion; on failure dump log if present for debugging
-          python cad_g4_conv.py --stl-file tests/tmp_ci/broken_ci.stl --precheck --repair --repair-report tests/tmp_ci/repairs.csv --log-file tests/tmp_ci/convert.log --log-level DEBUG || (echo "conversion step failed"; [ -f tests/tmp_ci/convert.log ] && echo "---- LOG START ----" && cat tests/tmp_ci/convert.log && echo "---- LOG END ----"; exit 2)
+          # Run conversion with automatic repair (no flags needed - repair is automatic)
+          # Log file will capture repair messages
+          python cad_g4_conv.py --stl-file tests/tmp_ci/broken_ci.stl -o tests/tmp_ci/output.gdml --log-file tests/tmp_ci/convert.log --log-level DEBUG || (echo "conversion step failed"; [ -f tests/tmp_ci/convert.log ] && echo "---- LOG START ----" && cat tests/tmp_ci/convert.log && echo "---- LOG END ----"; exit 2)
 
-          if [ ! -f tests/tmp_ci/repairs.csv ]; then echo "repairs.csv missing"; exit 2; fi
+          # Verify output files exist
+          if [ ! -f tests/tmp_ci/output.gdml ]; then echo "output.gdml missing"; exit 2; fi
           if [ ! -f tests/tmp_ci/convert.log ]; then echo "convert.log missing"; exit 2; fi
+          
+          # Verify repair messages in log
+          if ! grep -q "CHECKING AND REPAIRING" tests/tmp_ci/convert.log; then echo "No repair messages found in log"; exit 2; fi
+          echo "Smoke test passed: automatic repair working"
 
-      - name: Upload CI artifacts (repair report & logs)
+      - name: Upload CI artifacts (logs & output)
         uses: actions/upload-artifact@v4
         with:
-          name: ci-repair-artifacts-${{ github.run_id }}-${{ matrix.python-version }}
+          name: ci-automatic-repair-artifacts-${{ github.run_id }}-${{ matrix.python-version }}
           path: cad_g4_conv/tests/tmp_ci/**/*
 
       - name: Upload test results and logs

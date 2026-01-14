@@ -1,3 +1,4 @@
+"""Test automatic mesh repair during conversion."""
 import os
 import sys
 import tempfile
@@ -19,7 +20,8 @@ convert_step_to_gdml = cad_mod.convert_step_to_gdml
 
 
 @pytest.mark.skipif(trimesh is None, reason="trimesh not installed")
-def test_convert_single_stl_precheck_and_repair(tmp_path):
+def test_single_stl_automatic_repair(tmp_path):
+    """Test that broken STL meshes are automatically repaired during conversion."""
     # Create a simple cube mesh and then remove a face to make it non-watertight
     cube = trimesh.creation.box(extents=(10, 10, 10))
     # Remove one face to break watertightness
@@ -41,7 +43,8 @@ def test_convert_single_stl_precheck_and_repair(tmp_path):
     assert reg is not None
 
 
-def test_step_precheck_dryrun_ok(tmp_path):
+def test_step_conversion_with_automatic_repair(tmp_path):
+    """Test STEP file conversion with automatic tessellated solid repair."""
     # Use a small STEP file from the CLAIRE data (HEPI-SiO2) to test basic conversion with automatic repair
     step_file = Path(__file__).resolve().parents[1] / "../CLAIRE/CAD_files/HEPI-SiO2/HEPI-SiO2.STEP"
     step_file = Path(os.path.normpath(str(step_file)))
@@ -54,7 +57,8 @@ def test_step_precheck_dryrun_ok(tmp_path):
     assert reg is not None
 
 
-def test_postcheck_and_repair_on_converted_single_stl(tmp_path):
+def test_watertight_mesh_after_automatic_repair(tmp_path):
+    """Test that automatically repaired meshes are watertight."""
     # Create a broken cube - conversion now automatically checks and repairs
     cube = trimesh.creation.box(extents=(10,10,10))
     faces = cube.faces.copy()
